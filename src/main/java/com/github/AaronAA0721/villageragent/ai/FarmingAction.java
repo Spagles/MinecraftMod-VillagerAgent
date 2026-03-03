@@ -236,7 +236,7 @@ public class FarmingAction {
         BlockState state = world.getBlockState(pos);
         if (!(state.getBlock() instanceof FarmlandBlock)) return false;
         BlockPos above = pos.above();
-        return world.getBlockState(above).isAir(world, above);
+        return world.getBlockState(above).isAir();
     }
 
     // ---------------------------------------------------------------
@@ -245,7 +245,7 @@ public class FarmingAction {
 
     /**
      * Harvest ONE mature crop at the given position.
-     * Breaks the block and collects dropped items into the agent's inventory.
+     * Breaks the block and drops items into the world for the item attraction system to collect.
      * @return the crop Block that was harvested, or null if nothing was harvested
      */
     public static Block harvestBlockAt(VillagerEntity villager, ServerWorld world,
@@ -277,7 +277,7 @@ public class FarmingAction {
         BlockPos plantPos = farmlandPos.above();
 
         // Validate the spot is still valid
-        if (!world.getBlockState(plantPos).isAir(world, plantPos)) return false;
+        if (!world.getBlockState(plantPos).isAir()) return false;
         if (!(world.getBlockState(farmlandPos).getBlock() instanceof FarmlandBlock)) return false;
 
         // Try each seed type the villager has
@@ -316,7 +316,7 @@ public class FarmingAction {
         BlockPos plantPos = farmlandPos.above();
 
         // Validate the spot is still valid
-        if (!world.getBlockState(plantPos).isAir(world, plantPos)) return false;
+        if (!world.getBlockState(plantPos).isAir()) return false;
         if (!(world.getBlockState(farmlandPos).getBlock() instanceof FarmlandBlock)) return false;
 
         // Try the requested crop type first

@@ -338,12 +338,13 @@ public class VillagerAgentManager {
             return;
         }
 
-        // Cancel whatever vanilla AI decided to do, then re-assert our path.
-        // This runs every FARMING_TICK_INTERVAL (3) ticks — fast enough to
-        // override vanilla brain tasks without visible jitter.
-        villager.getNavigation().stop();
-        villager.getNavigation().moveTo(
-                target.getX() + 0.5, target.getY(), target.getZ() + 0.5, 0.6);
+        // Re-issue navigation command periodically in case path was interrupted.
+        // Vanilla brain is suppressed by VillagerEntityMixin while the agent is active,
+        // so we only need to re-issue occasionally for normal pathfinding recovery.
+        if (action.getStuckTicks() % 20 == 0) {
+            villager.getNavigation().moveTo(
+                    target.getX() + 0.5, target.getY(), target.getZ() + 0.5, 0.6);
+        }
     }
 
     /**

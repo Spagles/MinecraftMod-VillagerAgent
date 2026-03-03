@@ -32,8 +32,7 @@ import java.util.List;
  */
 public class VillagerEventHandler {
     private static final Logger LOGGER = LogManager.getLogger();
-    private int pickupTickCounter = 0;
-    
+
     /**
      * When a villager spawns or joins the world, create an AI agent for it
      */
@@ -127,20 +126,15 @@ public class VillagerEventHandler {
             // Fast tick — farming state machine runs every tick for responsive walking/acting
             VillagerAgentManager.tickFarming(event.world);
 
-            // Handle item pickup for all villagers using configurable interval
-            pickupTickCounter++;
-            int pickupInterval = ModConfig.VILLAGER_PICKUP_INTERVAL.get();
-            if (pickupTickCounter >= pickupInterval) {
-                pickupTickCounter = 0;
-                handleVillagerItemPickup(event.world);
-            }
+            // Item attraction & pickup — runs every tick for smooth item magnetism
+            handleVillagerItemPickup(event.world);
         }
     }
 
     /**
-     * Make villagers pick up nearby items automatically using item attraction
-     * Items are attracted to villagers like they're attracted to players
-     * Runs at configurable intervals (default: every 10 ticks)
+     * Make villagers pick up nearby items automatically using item attraction.
+     * Items are smoothly pulled toward villagers and collected when they overlap
+     * the villager's bounding box (like player pickup). Runs every tick.
      */
     private void handleVillagerItemPickup(net.minecraft.world.World world) {
         if (!ModConfig.ENABLE_AUTO_PICKUP.get()) return;
