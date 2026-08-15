@@ -106,11 +106,12 @@ public class LLMService {
         LOGGER.debug("Response Headers: " + conn.getHeaderFields());
 
         if (responseCode == 200) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
             StringBuilder response = new StringBuilder();
-            String responseLine;
-            while ((responseLine = br.readLine()) != null) {
-                response.append(responseLine.trim());
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
             }
 
             LOGGER.debug("Raw Response Body: " + response.toString());
@@ -127,13 +128,14 @@ public class LLMService {
             return content;
         } else {
             // Read error response
-            BufferedReader br = new BufferedReader(new InputStreamReader(
-                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
-                    StandardCharsets.UTF_8));
             StringBuilder errorResponse = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                errorResponse.append(line);
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
+                    StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    errorResponse.append(line);
+                }
             }
             LOGGER.debug("Error Response Body: " + errorResponse.toString());
             LOGGER.error("OpenAI API error " + responseCode + ": " + errorResponse.toString());
@@ -195,11 +197,12 @@ public class LLMService {
         LOGGER.debug("Response Headers: " + conn.getHeaderFields());
 
         if (responseCode == 200) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
             StringBuilder response = new StringBuilder();
-            String responseLine;
-            while ((responseLine = br.readLine()) != null) {
-                response.append(responseLine.trim());
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
             }
 
             LOGGER.debug("Raw Response Body: " + response.toString());
@@ -214,13 +217,14 @@ public class LLMService {
             LOGGER.info("Anthropic response received successfully");
             return content;
         } else {
-            BufferedReader br = new BufferedReader(new InputStreamReader(
-                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
-                    StandardCharsets.UTF_8));
             StringBuilder errorResponse = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                errorResponse.append(line);
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
+                    StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    errorResponse.append(line);
+                }
             }
             LOGGER.debug("Error Response Body: " + errorResponse.toString());
             LOGGER.error("Anthropic API error " + responseCode + ": " + errorResponse.toString());
@@ -273,11 +277,12 @@ public class LLMService {
         LOGGER.debug("Response Headers: " + conn.getHeaderFields());
 
         if (responseCode == 200) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
             StringBuilder response = new StringBuilder();
-            String responseLine;
-            while ((responseLine = br.readLine()) != null) {
-                response.append(responseLine.trim());
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
             }
 
             LOGGER.debug("Raw Response Body: " + response.toString());
@@ -290,13 +295,14 @@ public class LLMService {
             LOGGER.info("Ollama response received successfully");
             return content;
         } else {
-            BufferedReader br = new BufferedReader(new InputStreamReader(
-                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
-                    StandardCharsets.UTF_8));
             StringBuilder errorResponse = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                errorResponse.append(line);
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
+                    StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    errorResponse.append(line);
+                }
             }
             LOGGER.debug("Error Response Body: " + errorResponse.toString());
             LOGGER.error("Ollama API error " + responseCode + ": " + errorResponse.toString());
@@ -379,11 +385,12 @@ public class LLMService {
         LOGGER.debug("Response Code: " + responseCode + " " + responseMessage);
 
         if (responseCode == 200) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
             StringBuilder response = new StringBuilder();
-            String responseLine;
-            while ((responseLine = br.readLine()) != null) {
-                response.append(responseLine.trim());
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
             }
 
             LOGGER.debug("Raw Response Body: " + response.toString());
@@ -403,13 +410,14 @@ public class LLMService {
             LOGGER.info("Gemini response received successfully");
             return content;
         } else {
-            BufferedReader br = new BufferedReader(new InputStreamReader(
-                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
-                    StandardCharsets.UTF_8));
             StringBuilder errorResponse = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                errorResponse.append(line);
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                    conn.getErrorStream() != null ? conn.getErrorStream() : conn.getInputStream(),
+                    StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    errorResponse.append(line);
+                }
             }
             LOGGER.debug("Error Response Body: " + errorResponse.toString());
             LOGGER.error("Gemini API error " + responseCode + ": " + errorResponse.toString());
