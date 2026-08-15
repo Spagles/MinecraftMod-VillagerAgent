@@ -63,8 +63,10 @@ public class VillagerAgentSavedData extends WorldSavedData {
             CompoundNBT agentNBT = agentsList.getCompound(i);
             UUID villagerId = agentNBT.getUUID("VillagerId");
 
-            // Create new agent and load data
-            VillagerAgentData agent = new VillagerAgentData(villagerId);
+            // Create new agent and load data.
+            // Pass generateIdentity=false: the saved identity is restored by
+            // deserializeNBT below, so we must NOT trigger a (blocking) LLM call here.
+            VillagerAgentData agent = new VillagerAgentData(villagerId, false);
             agent.deserializeNBT(agentNBT);
 
             // Add to manager

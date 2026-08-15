@@ -8,6 +8,7 @@
     "VillagerEntityMixin"
   ],
   "client": [
+    "VillagerRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -1,15 +1,24 @@
 package com.github.AaronAA0721.villageragent.commands;
 
+import com.github.AaronAA0721.villageragent.ai.VillagerAgentData;
 import com.github.AaronAA0721.villageragent.ai.VillagerAgentManager;
 import com.github.AaronAA0721.villageragent.config.ModConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.Commands;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.merchant.villager.VillagerEntity;
+import net.minecraft.block.Blocks;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.StringTextComponent;
+import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.server.ServerWorld;
 
 /**
  * Command handler for VillagerAgent mod
@@ -53,7 +62,22 @@ public class VillagerAgentCommand {
             .then(Commands.literal("info")
                 .executes(VillagerAgentCommand::showInfo))
             .then(Commands.literal("reload")
-                .executes(VillagerAgentCommand::reloadConfig));
+                .executes(VillagerAgentCommand::reloadConfig))
+            .then(Commands.literal("build")
+                .then(Commands.literal("place")
+                    .then(Commands.argument("x", IntegerArgumentType.integer())
+                        .then(Commands.argument("y", IntegerArgumentType.integer())
+                            .then(Commands.argument("z", IntegerArgumentType.integer())
+                                .then(Commands.argument("block", StringArgumentType.word())
+                                    .executes(VillagerAgentCommand::cmdPlace))))))
+                .then(Commands.literal("break")
+                    .then(Commands.argument("x", IntegerArgumentType.integer())
+                        .then(Commands.argument("y", IntegerArgumentType.integer())
+                            .then(Commands.argument("z", IntegerArgumentType.integer())
+                                .executes(VillagerAgentCommand::cmdBreak)))))
+                .then(Commands.literal("structure")
+                    .then(Commands.argument("goal", StringArgumentType.greedyString())
+                        .executes(VillagerAgentCommand::cmdBuild))));
     }
     
     private static int setConfig(CommandContext<CommandSource> context) {
@@ -80,9 +104,17 @@ public class VillagerAgentCommand {
                 ModConfig.ENABLE_WORLD_INTERACTION.set(value);
                 optionName = "World Interaction";
                 break;
+            case "building":
+                ModConfig.ENABLE_BUILDING.set(value);
+                optionName = "Building";
+                break;
+            case "debugoverlay":
+                ModConfig.ENABLE_DEBUG_OVERLAY.set(value);
+                optionName = "Debug Overlay";
+                break;
             default:
                 source.sendSuccess(new StringTextComponent(TextFormatting.RED + "Unknown option: " + option), false);
-                source.sendSuccess(new StringTextComponent(TextFormatting.YELLOW + "Options: autopickup, aiagents, villagerchat, worldinteraction"), false);
+                source.sendSuccess(new StringTextComponent(TextFormatting.YELLOW + "Options: autopickup, aiagents, villagerchat, worldinteraction, building, debugoverlay"), false);
                 success = false;
         }
         
@@ -118,6 +150,14 @@ public class VillagerAgentCommand {
                 value = ModConfig.ENABLE_WORLD_INTERACTION.get();
                 optionName = "World Interaction";
                 break;
+            case "building":
+                value = ModConfig.ENABLE_BUILDING.get();
+                optionName = "Building";
+                break;
+            case "debugoverlay":
+                value = ModConfig.ENABLE_DEBUG_OVERLAY.get();
+                optionName = "Debug Overlay";
+                break;
             default:
                 source.sendSuccess(new StringTextComponent(TextFormatting.RED + "Unknown option: " + option), false);
                 found = false;
@@ -137,6 +177,8 @@ public class VillagerAgentCommand {
         sendConfigLine(source, "AI Agents", ModConfig.ENABLE_AI_AGENTS.get());
         sendConfigLine(source, "Villager Chat", ModConfig.ENABLE_VILLAGER_CHAT.get());
         sendConfigLine(source, "World Interaction", ModConfig.ENABLE_WORLD_INTERACTION.get());
+        sendConfigLine(source, "Building", ModConfig.ENABLE_BUILDING.get());
+        sendConfigLine(source, "Debug Overlay", ModConfig.ENABLE_DEBUG_OVERLAY.get());
         source.sendSuccess(new StringTextComponent(TextFormatting.GOLD + "==========================="), false);
         return 1;
     }
@@ -219,6 +261,103 @@ public class VillagerAgentCommand {
         ModConfig.LLM_API_URL.set(url);
         ModConfig.SPEC.save();
         source.sendSuccess(new StringTextComponent(TextFormatting.GREEN + "✓ API URL set to: " + url), true);
+        return 1;
+    }
+
+    // ── World-interaction test commands ──────────────────────────────────────
+
+    /** Resolve the agent nearest to the command sender (or the first agent if no sender). */
+    private static VillagerAgentData resolveAgent(CommandContext<CommandSource> context) {
+        CommandSource source = context.getSource();
+        ServerWorld world = (ServerWorld) source.getLevel();
+        double x = 0, y = 0, z = 0;
+        Entity sender = source.getEntity();
+        if (sender != null) { x = sender.getX(); y = sender.getY(); z = sender.getZ(); }
+        return VillagerAgentManager.getNearestAgent(world, x, y, z);
+    }
+
+    private static VillagerEntity resolveVillager(VillagerAgentData agent, CommandContext<CommandSource> context) {
+        ServerWorld world = (ServerWorld) context.getSource().getLevel();
+        net.minecraft.entity.Entity e = world.getEntity(agent.getVillagerId());
+        return (e instanceof VillagerEntity) ? (VillagerEntity) e : null;
+    }
+
+    private static int cmdPlace(CommandContext<CommandSource> context) {
+        CommandSource source = context.getSource();
+        ServerWorld world = (ServerWorld) source.getLevel();
+        int x = IntegerArgumentType.getInteger(context, "x");
+        int y = IntegerArgumentType.getInteger(context, "y");
+        int z = IntegerArgumentType.getInteger(context, "z");
+        String blockId = StringArgumentType.getString(context, "block");
+
+        VillagerAgentData agent = resolveAgent(context);
+        if (agent == null) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "No AI villager found."), false);
+            return 0;
+        }
+        VillagerEntity villager = resolveVillager(agent, context);
+        if (villager == null) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "Villager entity not loaded."), false);
+            return 0;
+        }
+        BlockPos target = new BlockPos(x, y, z);
+        net.minecraft.block.Block block = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(blockId));
+        if (block == null || block == Blocks.AIR) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "Unknown block: " + blockId), false);
+            return 0;
+        }
+        VillagerAgentManager.requestPlace(agent, villager, world, target, block);
+        source.sendSuccess(new StringTextComponent(TextFormatting.GREEN + "✓ " + agent.getName()
+                + " will place " + blockId + " at (" + x + "," + y + "," + z + ")"), true);
+        return 1;
+    }
+
+    private static int cmdBreak(CommandContext<CommandSource> context) {
+        CommandSource source = context.getSource();
+        ServerWorld world = (ServerWorld) source.getLevel();
+        int x = IntegerArgumentType.getInteger(context, "x");
+        int y = IntegerArgumentType.getInteger(context, "y");
+        int z = IntegerArgumentType.getInteger(context, "z");
+
+        VillagerAgentData agent = resolveAgent(context);
+        if (agent == null) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "No AI villager found."), false);
+            return 0;
+        }
+        VillagerEntity villager = resolveVillager(agent, context);
+        if (villager == null) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "Villager entity not loaded."), false);
+            return 0;
+        }
+        BlockPos target = new BlockPos(x, y, z);
+        VillagerAgentManager.requestBreak(agent, villager, world, target);
+        source.sendSuccess(new StringTextComponent(TextFormatting.GREEN + "✓ " + agent.getName()
+                + " will break the block at (" + x + "," + y + "," + z + ")"), true);
+        return 1;
+    }
+
+    private static int cmdBuild(CommandContext<CommandSource> context) {
+        CommandSource source = context.getSource();
+        ServerWorld world = (ServerWorld) source.getLevel();
+        String goal = StringArgumentType.getString(context, "goal");
+
+        VillagerAgentData agent = resolveAgent(context);
+        if (agent == null) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "No AI villager found."), false);
+            return 0;
+        }
+        VillagerEntity villager = resolveVillager(agent, context);
+        if (villager == null) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "Villager entity not loaded."), false);
+            return 0;
+        }
+        if (!ModConfig.ENABLE_BUILDING.get()) {
+            source.sendSuccess(new StringTextComponent(TextFormatting.RED + "Building is disabled (config)."), false);
+            return 0;
+        }
+        VillagerAgentManager.requestBuild(agent, villager, world, goal);
+        source.sendSuccess(new StringTextComponent(TextFormatting.GREEN + "✓ " + agent.getName()
+                + " is asking the LLM to design & build: \"" + goal + "\""), true);
         return 1;
     }
 }

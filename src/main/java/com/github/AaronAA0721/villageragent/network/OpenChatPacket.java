@@ -2,7 +2,10 @@ package com.github.AaronAA0721.villageragent.network;
 
 import com.github.AaronAA0721.villageragent.ai.VillagerAgentData;
 import com.github.AaronAA0721.villageragent.ai.VillagerAgentManager;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.merchant.villager.VillagerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.inventory.EquipmentSlotType;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
@@ -53,14 +56,29 @@ public class OpenChatPacket {
                     inventoryItems.add(item.copy());
                 }
             }
-            
+
+            // Collect equipped armor from the villager entity
+            List<ItemStack> armorItems = new ArrayList<>();
+            net.minecraft.world.server.ServerWorld serverWorld = (net.minecraft.world.server.ServerWorld) player.level;
+            Entity entity = serverWorld.getEntity(packet.villagerId);
+            if (entity instanceof VillagerEntity) {
+                VillagerEntity villager = (VillagerEntity) entity;
+                armorItems.add(villager.getItemBySlot(EquipmentSlotType.HEAD).copy());
+                armorItems.add(villager.getItemBySlot(EquipmentSlotType.CHEST).copy());
+                armorItems.add(villager.getItemBySlot(EquipmentSlotType.LEGS).copy());
+                armorItems.add(villager.getItemBySlot(EquipmentSlotType.FEET).copy());
+            } else {
+                for (int i = 0; i < 4; i++) armorItems.add(ItemStack.EMPTY);
+            }
+
             // Send villager data to client (including profession)
             SyncVillagerDataPacket syncPacket = new SyncVillagerDataPacket(
                     packet.villagerId,
                     agent.getName(),
                     agent.getProfession(),
                     agent.getPersonality(),
-                    inventoryItems
+                    inventoryItems,
+                    armorItems
             );
             ModNetworking.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), syncPacket);
 

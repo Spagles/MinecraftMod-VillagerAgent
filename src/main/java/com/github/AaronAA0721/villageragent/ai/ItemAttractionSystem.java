@@ -2,6 +2,7 @@ package com.github.AaronAA0721.villageragent.ai;
 
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.merchant.villager.VillagerEntity;
+import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvents;
@@ -117,42 +118,67 @@ public class ItemAttractionSystem {
 
     /**
      * Collect an item into the agent's inventory and play the pickup sound.
-     * Only removes the world entity if the entire stack was absorbed.
+     * <p>Armor items are handled specially: they are equipped directly into
+     * the entity's equipment slots via {@link VillagerEquipmentHelper#tryEquipArmor}.
+     * Only if the armor is worse than what is already equipped does it go into
+     * the regular inventory. This means equipped armor is <b>not</b> duplicated
+     * in the {@link AgentInventory}.
      */
     private static void pickupItem(ItemEntity itemEntity, VillagerEntity villager, VillagerAgentData agent) {
         ItemStack stack = itemEntity.getItem();
         int originalCount = stack.getCount();
         ItemStack toAdd = stack.copy();
 
-        if (agent.getInventory().addItem(toAdd)) {
-            // Entire stack absorbed — remove world entity
-            // Play pickup sound (same as player: SoundEvents.ITEM_PICKUP)
-            villager.level.playSound(null,
-                    villager.getX(), villager.getY(), villager.getZ(),
-                    SoundEvents.ITEM_PICKUP, SoundCategory.PLAYERS,
-                    0.2F,
-                    ((villager.getRandom().nextFloat() - villager.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F
-            );
+        // --- Armor: try to equip directly ---
+        if (toAdd.getItem() instanceof ArmorItem) {
+            ItemStack result = VillagerEquipmentHelper.tryEquipArmor(villager, toAdd);
+            if (result.isEmpty()) {
+                // Armor was equipped, nothing left to store
+                playPickupSound(villager);
+                itemEntity.remove();
+                LOGGER.debug("{} equipped {}", agent.getName(), toAdd.getItem().getRegistryName());
+                return;
+            } else if (result != toAdd) {
+                // Swap happened: new armor equipped, old piece returned.
+                // Put the old piece into inventory.
+                agent.getInventory().addItem(result);
+                playPickupSound(villager);
+                itemEntity.remove();
+                LOGGER.debug("{} equipped {} (swapped out {})", agent.getName(),
+                        toAdd.getItem().getRegistryName(), result.getItem().getRegistryName());
+                return;
+            }
+            // else: not better — fall through to add to inventory normally
+        }
 
+        // --- Normal item (or armor that wasn't equipped) ---
+        if (agent.getInventory().addItem(toAdd)) {
+            playPickupSound(villager);
             itemEntity.remove();
             LOGGER.debug("{} picked up {}x {}", agent.getName(), originalCount,
                     stack.getItem().getRegistryName());
+            // After adding items to inventory, re-evaluate equipment
+            // (e.g. armor that wasn't better at direct-equip time may now
+            // allow a full refresh to find the best combination)
+            VillagerEquipmentHelper.refreshEquipment(villager, agent);
         } else if (toAdd.getCount() < originalCount) {
             // Partial pickup — update the world entity's stack with the remainder
             stack.setCount(toAdd.getCount());
             int absorbed = originalCount - toAdd.getCount();
-
-            villager.level.playSound(null,
-                    villager.getX(), villager.getY(), villager.getZ(),
-                    SoundEvents.ITEM_PICKUP, SoundCategory.PLAYERS,
-                    0.2F,
-                    ((villager.getRandom().nextFloat() - villager.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F
-            );
-
+            playPickupSound(villager);
             LOGGER.debug("{} partially picked up {}x {} ({} remaining)", agent.getName(),
                     absorbed, stack.getItem().getRegistryName(), toAdd.getCount());
         }
         // else: inventory completely full, item stays in world
+    }
+
+    private static void playPickupSound(VillagerEntity villager) {
+        villager.level.playSound(null,
+                villager.getX(), villager.getY(), villager.getZ(),
+                SoundEvents.ITEM_PICKUP, SoundCategory.PLAYERS,
+                0.2F,
+                ((villager.getRandom().nextFloat() - villager.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F
+        );
     }
 
     /** Attraction range in blocks. */

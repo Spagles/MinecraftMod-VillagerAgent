@@ -37,6 +37,8 @@ public class VillagerTradeScreen extends Screen {
     private final String profession;
     private final String personality;
     private final List<ItemStack> villagerInventory;
+    /** Equipped armor: HEAD(0), CHEST(1), LEGS(2), FEET(3) */
+    private final List<ItemStack> villagerArmor;
     private final VillagerChatScreen parentScreen;
 
     // Trade slots - what player offers to give and wants to receive
@@ -54,14 +56,19 @@ public class VillagerTradeScreen extends Screen {
     // Layout constants
     private static final int SLOT_SIZE = 18;
 
+    // Armor slot labels
+    private static final String[] ARMOR_LABELS = {"Head", "Chest", "Legs", "Feet"};
+
     public VillagerTradeScreen(UUID villagerId, String villagerName, String profession, String personality,
-                               List<ItemStack> villagerInventory, VillagerChatScreen parentScreen) {
+                               List<ItemStack> villagerInventory, List<ItemStack> villagerArmor,
+                               VillagerChatScreen parentScreen) {
         super(new StringTextComponent("Trade with " + villagerName));
         this.villagerId = villagerId;
         this.villagerName = villagerName;
         this.profession = profession;
         this.personality = personality;
         this.villagerInventory = new ArrayList<>(villagerInventory);
+        this.villagerArmor = new ArrayList<>(villagerArmor);
         this.parentScreen = parentScreen;
 
         // Initialize empty slots
@@ -70,29 +77,38 @@ public class VillagerTradeScreen extends Screen {
             buySlots[i] = ItemStack.EMPTY;
         }
     }
-    
+
     @Override
     protected void init() {
         super.init();
 
         int centerX = this.width / 2;
-        int centerY = this.height / 2;
+        // Trade area starts below the inventory/armor panels
+        int tradeY = getTradeAreaY();
 
         // Back button (top left)
         this.addButton(new Button(10, 10, 60, 20,
             new StringTextComponent("< Back"), button -> goBack()));
 
-        // Propose Trade button (center bottom)
-        this.addButton(new Button(centerX - 50, centerY + 70, 100, 20,
+        // Propose Trade button (below trade slots)
+        this.addButton(new Button(centerX - 50, tradeY + 40, 100, 20,
             new StringTextComponent("Propose Trade"), button -> proposeTrade()));
 
         // Clear Sell button
-        this.addButton(new Button(centerX - 90, centerY + 20, 50, 16,
+        this.addButton(new Button(centerX - 90, tradeY + 22, 50, 16,
             new StringTextComponent("Clear"), button -> clearSellSlots()));
 
         // Clear Buy button
-        this.addButton(new Button(centerX + 40, centerY + 20, 50, 16,
+        this.addButton(new Button(centerX + 40, tradeY + 22, 50, 16,
             new StringTextComponent("Clear"), button -> clearBuySlots()));
+    }
+
+    /** Y coordinate where the trade area begins (below all panels). */
+    private int getTradeAreaY() {
+        // Armor panel bottom = PANEL_TOP + PANEL_HEIGHT + gap + ARMOR_HEIGHT
+        int panelBottom = 35 + 100 + 5 + 40;  // = 180
+        // Ensure at least 10px gap below panels
+        return Math.max(panelBottom + 10, this.height / 2 + 10);
     }
 
     private void goBack() {
@@ -187,53 +203,58 @@ public class VillagerTradeScreen extends Screen {
     public UUID getVillagerId() {
         return villagerId;
     }
-    
+
     @Override
     public void render(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
         // Dark background
         this.renderBackground(matrixStack);
 
         int centerX = this.width / 2;
-        int centerY = this.height / 2;
 
         // Title with profession
         drawCenteredString(matrixStack, this.font,
             TextFormatting.GOLD + "Trade with " + villagerName + TextFormatting.GRAY + " (" + profession + ")",
             centerX, 20, 0xFFFFFF);
 
-        // === LEFT PANEL: Player Inventory ===
+        // === LEFT PANEL: Player Inventory (top area) ===
         int playerPanelX = 20;
-        int playerPanelY = 50;
+        int playerPanelY = 35;
         renderPanel(matrixStack, playerPanelX, playerPanelY, 175, 100, "Your Inventory");
         renderPlayerInventory(matrixStack, playerPanelX + 5, playerPanelY + 18, mouseX, mouseY);
 
-        // === RIGHT PANEL: Villager Inventory (read-only reference) ===
+        // === RIGHT PANEL: Villager Inventory (top area, same Y) ===
         int villagerPanelX = this.width - 195;
-        int villagerPanelY = 50;
+        int villagerPanelY = 35;
         renderPanel(matrixStack, villagerPanelX, villagerPanelY, 175, 100, villagerName + "'s Items (reference)");
         renderVillagerInventory(matrixStack, villagerPanelX + 5, villagerPanelY + 18, mouseX, mouseY);
 
-        // === CENTER: Trade Slots ===
+        // === ARMOR PANEL: Equipped armor (below villager inventory) ===
+        int armorPanelX = villagerPanelX;
+        int armorPanelY = villagerPanelY + 105;
+        renderPanel(matrixStack, armorPanelX, armorPanelY, 175, 40, "Equipped Armor");
+        renderArmorSlots(matrixStack, armorPanelX + 5, armorPanelY + 18, mouseX, mouseY);
+
+        // === CENTER: Trade Slots (below all panels) ===
+        int tradeY = getTradeAreaY();
         int tradeCenterX = centerX;
-        int tradeCenterY = centerY + 50;
 
         // Sell section (what you offer TO villager)
-        this.font.draw(matrixStack, TextFormatting.GREEN + "You Give:", tradeCenterX - 75, tradeCenterY - 30, 0xFFFFFF);
-        renderTradeSlot(matrixStack, tradeCenterX - 65, tradeCenterY - 15, sellSlots[0], mouseX, mouseY, true);
-        renderTradeSlot(matrixStack, tradeCenterX - 40, tradeCenterY - 15, sellSlots[1], mouseX, mouseY, true);
+        this.font.draw(matrixStack, TextFormatting.GREEN + "You Give:", tradeCenterX - 75, tradeY - 12, 0xFFFFFF);
+        renderTradeSlot(matrixStack, tradeCenterX - 65, tradeY + 2, sellSlots[0], mouseX, mouseY, true);
+        renderTradeSlot(matrixStack, tradeCenterX - 40, tradeY + 2, sellSlots[1], mouseX, mouseY, true);
 
         // Arrow
-        drawCenteredString(matrixStack, this.font, "==>", tradeCenterX, tradeCenterY - 8, 0xFFFFFF);
+        drawCenteredString(matrixStack, this.font, "==>", tradeCenterX, tradeY + 9, 0xFFFFFF);
 
         // Buy section (what you want FROM villager)
-        this.font.draw(matrixStack, TextFormatting.YELLOW + "You Get:", tradeCenterX + 20, tradeCenterY - 30, 0xFFFFFF);
-        renderTradeSlot(matrixStack, tradeCenterX + 20, tradeCenterY - 15, buySlots[0], mouseX, mouseY, true);
-        renderTradeSlot(matrixStack, tradeCenterX + 45, tradeCenterY - 15, buySlots[1], mouseX, mouseY, true);
+        this.font.draw(matrixStack, TextFormatting.YELLOW + "You Get:", tradeCenterX + 20, tradeY - 12, 0xFFFFFF);
+        renderTradeSlot(matrixStack, tradeCenterX + 20, tradeY + 2, buySlots[0], mouseX, mouseY, true);
+        renderTradeSlot(matrixStack, tradeCenterX + 45, tradeY + 2, buySlots[1], mouseX, mouseY, true);
 
         // Trade result message
         if (tradeResultMessage != null && System.currentTimeMillis() - tradeResultTime < 5000) {
             int msgColor = tradeAccepted ? 0xFF00FF00 : 0xFFFF5555;
-            drawCenteredString(matrixStack, this.font, tradeResultMessage, centerX, centerY + 90, msgColor);
+            drawCenteredString(matrixStack, this.font, tradeResultMessage, centerX, tradeY + 65, msgColor);
         }
 
         // Instructions
@@ -294,6 +315,37 @@ public class VillagerTradeScreen extends Screen {
         }
     }
 
+    /**
+     * Render 4 armor slots (HEAD, CHEST, LEGS, FEET) in a horizontal row
+     * with small labels. These are read-only display slots.
+     */
+    private void renderArmorSlots(MatrixStack matrixStack, int startX, int startY, int mouseX, int mouseY) {
+        for (int i = 0; i < 4; i++) {
+            ItemStack armor = (i < villagerArmor.size()) ? villagerArmor.get(i) : ItemStack.EMPTY;
+            int slotX = startX + i * (SLOT_SIZE + 22); // extra space for label
+            int slotY = startY;
+
+            // Label above slot
+            this.font.draw(matrixStack, TextFormatting.GRAY + ARMOR_LABELS[i],
+                    slotX, slotY - 10, 0xAAAAAA);
+
+            // Slot with slightly different color to distinguish from inventory
+            fill(matrixStack, slotX, slotY, slotX + SLOT_SIZE, slotY + SLOT_SIZE, 0xFF6B6BAA);
+            fill(matrixStack, slotX + 1, slotY + 1, slotX + SLOT_SIZE - 1, slotY + SLOT_SIZE - 1, 0xFF373755);
+
+            if (!armor.isEmpty()) {
+                this.itemRenderer.renderGuiItem(armor, slotX + 1, slotY + 1);
+                this.itemRenderer.renderGuiItemDecorations(this.font, armor, slotX + 1, slotY + 1);
+            }
+
+            // Hover highlight
+            if (mouseX >= slotX && mouseX < slotX + SLOT_SIZE && mouseY >= slotY && mouseY < slotY + SLOT_SIZE) {
+                fill(matrixStack, slotX + 1, slotY + 1, slotX + SLOT_SIZE - 1, slotY + SLOT_SIZE - 1, 0x80FFFFFF);
+            }
+        }
+    }
+
+
     private void renderInventorySlot(MatrixStack matrixStack, int x, int y, ItemStack stack, int mouseX, int mouseY) {
         // Slot background
         fill(matrixStack, x, y, x + SLOT_SIZE, y + SLOT_SIZE, 0xFF8B8B8B);
@@ -333,8 +385,7 @@ public class VillagerTradeScreen extends Screen {
         if (mc.player == null) return super.mouseClicked(mouseX, mouseY, button);
 
         int centerX = this.width / 2;
-        int centerY = this.height / 2;
-        int tradeCenterY = centerY + 50;
+        int tradeY = getTradeAreaY();
         int tradeSlotSize = SLOT_SIZE + 4;
 
         boolean isLeftClick = (button == 0);
@@ -344,7 +395,7 @@ public class VillagerTradeScreen extends Screen {
         // === SELL SLOTS (player items to give) ===
         for (int i = 0; i < 2; i++) {
             int slotX = (i == 0) ? centerX - 65 : centerX - 40;
-            int slotY = tradeCenterY - 15;
+            int slotY = tradeY + 2;
             if (checkSlotClick(mouseX, mouseY, slotX, slotY, tradeSlotSize)) {
                 handleSlotInteraction(sellSlots, i, isLeftClick, isRightClick, true);
                 return true;
@@ -354,9 +405,8 @@ public class VillagerTradeScreen extends Screen {
         // === BUY SLOTS (items player wants - just set quantity, don't take from inventory) ===
         for (int i = 0; i < 2; i++) {
             int slotX = (i == 0) ? centerX + 20 : centerX + 45;
-            int slotY = tradeCenterY - 15;
+            int slotY = tradeY + 2;
             if (checkSlotClick(mouseX, mouseY, slotX, slotY, tradeSlotSize)) {
-                // Buy slots: can only place/remove items (specifying what you want)
                 handleBuySlotInteraction(i, isLeftClick, isRightClick);
                 return true;
             }
@@ -364,7 +414,7 @@ public class VillagerTradeScreen extends Screen {
 
         // === PLAYER INVENTORY ===
         int playerPanelX = 20;
-        int playerPanelY = 50;
+        int playerPanelY = 35;
         for (int i = 0; i < 36; i++) {
             int col = i % 9;
             int row = i / 9;
@@ -373,7 +423,6 @@ public class VillagerTradeScreen extends Screen {
 
             if (checkSlotClick(mouseX, mouseY, slotX, slotY, SLOT_SIZE)) {
                 if (isShiftHeld && heldItem.isEmpty()) {
-                    // Shift+click: quick move to sell slot
                     ItemStack invItem = mc.player.inventory.getItem(i);
                     if (!invItem.isEmpty()) {
                         if (sellSlots[0].isEmpty()) {
@@ -393,7 +442,7 @@ public class VillagerTradeScreen extends Screen {
 
         // === VILLAGER INVENTORY (read-only, click to add to buy slots) ===
         int villagerPanelX = this.width - 195;
-        int villagerPanelY = 50;
+        int villagerPanelY = 35;
         for (int i = 0; i < villagerInventory.size(); i++) {
             int col = i % 9;
             int row = i / 9;
@@ -403,26 +452,49 @@ public class VillagerTradeScreen extends Screen {
             if (checkSlotClick(mouseX, mouseY, slotX, slotY, SLOT_SIZE)) {
                 ItemStack villagerItem = villagerInventory.get(i);
                 if (!villagerItem.isEmpty()) {
-                    // Add a copy to buy slots (specifying what you want)
                     ItemStack toAdd = villagerItem.copy();
                     if (isRightClick) {
-                        toAdd.setCount(1); // Right-click = want 1
+                        toAdd.setCount(1);
                     }
-                    if (buySlots[0].isEmpty()) {
-                        buySlots[0] = toAdd;
-                    } else if (buySlots[0].sameItem(toAdd) && buySlots[0].getCount() < buySlots[0].getMaxStackSize()) {
-                        buySlots[0].grow(toAdd.getCount());
-                    } else if (buySlots[1].isEmpty()) {
-                        buySlots[1] = toAdd;
-                    } else if (buySlots[1].sameItem(toAdd) && buySlots[1].getCount() < buySlots[1].getMaxStackSize()) {
-                        buySlots[1].grow(toAdd.getCount());
+                    addToBuySlots(toAdd);
+                }
+                return true;
+            }
+        }
+
+        // === ARMOR SLOTS (read-only, click to add to buy slots) ===
+        int armorPanelX = villagerPanelX;
+        int armorPanelY = villagerPanelY + 105;
+        for (int i = 0; i < 4; i++) {
+            ItemStack armor = (i < villagerArmor.size()) ? villagerArmor.get(i) : ItemStack.EMPTY;
+            int slotX = armorPanelX + 5 + i * (SLOT_SIZE + 22);
+            int slotY = armorPanelY + 18;
+            if (checkSlotClick(mouseX, mouseY, slotX, slotY, SLOT_SIZE)) {
+                if (!armor.isEmpty()) {
+                    ItemStack toAdd = armor.copy();
+                    if (isRightClick) {
+                        toAdd.setCount(1);
                     }
+                    addToBuySlots(toAdd);
                 }
                 return true;
             }
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    /** Helper to add an item to the first available buy slot. */
+    private void addToBuySlots(ItemStack toAdd) {
+        if (buySlots[0].isEmpty()) {
+            buySlots[0] = toAdd;
+        } else if (buySlots[0].sameItem(toAdd) && buySlots[0].getCount() < buySlots[0].getMaxStackSize()) {
+            buySlots[0].grow(toAdd.getCount());
+        } else if (buySlots[1].isEmpty()) {
+            buySlots[1] = toAdd;
+        } else if (buySlots[1].sameItem(toAdd) && buySlots[1].getCount() < buySlots[1].getMaxStackSize()) {
+            buySlots[1].grow(toAdd.getCount());
+        }
     }
 
     private void handlePlayerInventoryClick(int slotIndex, boolean leftClick, boolean rightClick) {

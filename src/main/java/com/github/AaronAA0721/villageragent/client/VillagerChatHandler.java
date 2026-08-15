@@ -20,13 +20,14 @@ public class VillagerChatHandler {
     /**
      * Open the chat screen with villager data
      */
-    public static void openChatScreen(UUID villagerId, String villagerName, String profession, String personality, List<ItemStack> inventory) {
+    public static void openChatScreen(UUID villagerId, String villagerName, String profession,
+                                       String personality, List<ItemStack> inventory, List<ItemStack> armorItems) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
 
         LOGGER.info("Opening chat screen for " + profession + " " + villagerName);
 
-        currentChatScreen = new VillagerChatScreen(villagerId, villagerName, profession, personality, inventory);
+        currentChatScreen = new VillagerChatScreen(villagerId, villagerName, profession, personality, inventory, armorItems);
         mc.setScreen(currentChatScreen);
     }
 

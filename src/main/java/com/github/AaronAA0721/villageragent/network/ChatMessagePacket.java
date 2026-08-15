@@ -2,8 +2,12 @@ package com.github.AaronAA0721.villageragent.network;
 
 import com.github.AaronAA0721.villageragent.ai.VillagerAgentData;
 import com.github.AaronAA0721.villageragent.ai.VillagerAgentManager;
+import com.github.AaronAA0721.villageragent.ai.VillagerVisionSystem;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.merchant.villager.VillagerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.fml.network.NetworkEvent;
 import net.minecraftforge.fml.network.PacketDistributor;
 import org.apache.logging.log4j.LogManager;
@@ -48,7 +52,20 @@ public class ChatMessagePacket {
             
             String playerName = player.getName().getString();
             LOGGER.info("Chat from " + playerName + " to " + agent.getName() + ": " + packet.message);
-            
+
+            // Take an environment snapshot so the LLM knows the villager's surroundings.
+            if (player.level instanceof ServerWorld) {
+                ServerWorld serverWorld = (ServerWorld) player.level;
+                Entity rawEntity = serverWorld.getEntity(packet.villagerId);
+                if (rawEntity instanceof VillagerEntity) {
+                    // Pass agent so chunk memory and in-sight chunks are included
+                    String envSummary = VillagerVisionSystem.buildEnvironmentSummary(
+                            (VillagerEntity) rawEntity, serverWorld, agent);
+                    agent.setEnvironmentSummary(envSummary);
+                    LOGGER.debug("Environment snapshot for {}: {}", agent.getName(), envSummary);
+                }
+            }
+
             // Generate LLM response asynchronously (pass game tick for conversation memory)
             long gameTick = player.level.getGameTime();
             agent.generateChatResponse(playerName, packet.message, gameTick).thenAccept(response -> {

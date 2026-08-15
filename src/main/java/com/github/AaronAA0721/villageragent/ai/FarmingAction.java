@@ -236,7 +236,7 @@ public class FarmingAction {
         BlockState state = world.getBlockState(pos);
         if (!(state.getBlock() instanceof FarmlandBlock)) return false;
         BlockPos above = pos.above();
-        return world.getBlockState(above).isAir();
+        return world.getBlockState(above).getMaterial() == net.minecraft.block.material.Material.AIR;
     }
 
     // ---------------------------------------------------------------
@@ -277,7 +277,7 @@ public class FarmingAction {
         BlockPos plantPos = farmlandPos.above();
 
         // Validate the spot is still valid
-        if (!world.getBlockState(plantPos).isAir()) return false;
+        if (world.getBlockState(plantPos).getMaterial() != net.minecraft.block.material.Material.AIR) return false;
         if (!(world.getBlockState(farmlandPos).getBlock() instanceof FarmlandBlock)) return false;
 
         // Try each seed type the villager has
@@ -316,10 +316,10 @@ public class FarmingAction {
         BlockPos plantPos = farmlandPos.above();
 
         // Validate the spot is still valid
-        if (!world.getBlockState(plantPos).isAir()) return false;
+        if (world.getBlockState(plantPos).getMaterial() != net.minecraft.block.material.Material.AIR) return false;
         if (!(world.getBlockState(farmlandPos).getBlock() instanceof FarmlandBlock)) return false;
 
-        // Try the requested crop type first
+        // Try to plant the specific crop type only — no fallback
         if (cropBlock != null) {
             Item seedItem = CROP_TO_SEED.get(cropBlock);
             if (seedItem != null) {
@@ -334,8 +334,7 @@ public class FarmingAction {
             }
         }
 
-        // Fallback: plant any seed the villager has
-        return plantSeedAt(villager, world, agent, farmlandPos);
+        return false;
     }
 
     /**
@@ -373,11 +372,14 @@ public class FarmingAction {
         Block adjacentCrop = findAdjacentCropType(world, farmlandPos);
 
         if (adjacentCrop != null) {
-            // Try to plant the same crop; falls back to any seed if unavailable
-            return plantSpecificCropAt(villager, world, agent, farmlandPos, adjacentCrop);
+            // Try to plant the same crop as the neighbor
+            if (plantSpecificCropAt(villager, world, agent, farmlandPos, adjacentCrop)) {
+                return true;
+            }
+            // Don't have that seed — fall through to random selection
         }
 
-        // No adjacent crop — pick a random seed type the villager has
+        // No adjacent crop or don't have matching seed — pick a random seed the villager has
         List<Item> availableSeeds = new ArrayList<>();
         for (Item seedItem : SEED_TO_CROP.keySet()) {
             if (agent.getInventory().countItem(new ItemStack(seedItem)) > 0) {

@@ -73,6 +73,13 @@ public class ModNetworking {
                 CraftingRequestPacket::encode,
                 CraftingRequestPacket::decode,
                 CraftingRequestPacket::handle);
+
+        // Server -> Client: Debug overlay snapshot (visualization debugging)
+        CHANNEL.registerMessage(nextId(),
+                DebugDataPacket.class,
+                DebugDataPacket::encode,
+                DebugDataPacket::decode,
+                DebugDataPacket::handle);
     }
 }
 

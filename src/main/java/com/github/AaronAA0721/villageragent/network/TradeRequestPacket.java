@@ -3,9 +3,15 @@ package com.github.AaronAA0721.villageragent.network;
 import com.github.AaronAA0721.villageragent.ai.LLMService;
 import com.github.AaronAA0721.villageragent.ai.VillagerAgentData;
 import com.github.AaronAA0721.villageragent.ai.VillagerAgentManager;
+import com.github.AaronAA0721.villageragent.ai.VillagerEquipmentHelper;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.merchant.villager.VillagerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.inventory.EquipmentSlotType;
+import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.fml.network.NetworkEvent;
 import net.minecraftforge.fml.network.PacketDistributor;
 import org.apache.logging.log4j.LogManager;
@@ -56,19 +62,24 @@ public class TradeRequestPacket {
         ctx.get().enqueueWork(() -> {
             ServerPlayerEntity player = ctx.get().getSender();
             if (player == null) return;
-            
+
             VillagerAgentData agent = VillagerAgentManager.getAgent(packet.villagerId);
             if (agent == null) {
                 LOGGER.warn("No agent found for villager: " + packet.villagerId);
                 return;
             }
-            
+
+            // Find the villager entity
+            ServerWorld serverWorld = (ServerWorld) player.level;
+            Entity entity = serverWorld.getEntity(packet.villagerId);
+            VillagerEntity villager = (entity instanceof VillagerEntity) ? (VillagerEntity) entity : null;
+
             // Build trade description for LLM
             String tradeDescription = buildTradeDescription(packet, agent);
             LOGGER.info("Trade request: " + tradeDescription);
-            
-            // Ask LLM to evaluate the trade
-            evaluateTradeWithLLM(player, agent, packet, tradeDescription);
+
+            // Ask LLM to evaluate the trade (pass villager for armor-aware inventory description)
+            evaluateTradeWithLLM(player, agent, packet, tradeDescription, villager);
         });
         ctx.get().setPacketHandled(true);
     }
@@ -117,9 +128,9 @@ public class TradeRequestPacket {
     }
 
     /**
-     * Build a description of the villager's current inventory
+     * Build a description of the villager's current inventory AND equipped armor.
      */
-    private static String buildInventoryDescription(VillagerAgentData agent) {
+    private static String buildInventoryDescription(VillagerAgentData agent, VillagerEntity villager) {
         StringBuilder sb = new StringBuilder();
         java.util.Map<String, Integer> itemCounts = new java.util.HashMap<>();
 
@@ -130,8 +141,22 @@ public class TradeRequestPacket {
             }
         }
 
-        if (itemCounts.isEmpty()) {
-            return "Your inventory is empty.";
+        // Include equipped armor
+        StringBuilder armorDesc = new StringBuilder();
+        if (villager != null) {
+            EquipmentSlotType[] armorSlots = {EquipmentSlotType.HEAD, EquipmentSlotType.CHEST,
+                    EquipmentSlotType.LEGS, EquipmentSlotType.FEET};
+            for (EquipmentSlotType slot : armorSlots) {
+                ItemStack equipped = villager.getItemBySlot(slot);
+                if (!equipped.isEmpty()) {
+                    armorDesc.append(", wearing ").append(getItemName(equipped))
+                             .append(" (").append(slot.getName()).append(")");
+                }
+            }
+        }
+
+        if (itemCounts.isEmpty() && armorDesc.length() == 0) {
+            return "Your inventory is empty and you have no armor equipped.";
         }
 
         sb.append("Your current inventory: ");
@@ -141,13 +166,17 @@ public class TradeRequestPacket {
             sb.append(entry.getValue()).append("x ").append(entry.getKey());
             first = false;
         }
+        if (armorDesc.length() > 0) {
+            sb.append(". Equipped armor: ").append(armorDesc.substring(2)); // skip leading ", "
+        }
         return sb.toString();
     }
 
     private static void evaluateTradeWithLLM(ServerPlayerEntity player, VillagerAgentData agent,
-                                              TradeRequestPacket packet, String tradeDescription) {
+                                              TradeRequestPacket packet, String tradeDescription,
+                                              VillagerEntity villager) {
         String profession = agent.getProfession();
-        String inventoryDesc = buildInventoryDescription(agent);
+        String inventoryDesc = buildInventoryDescription(agent, villager);
 
         // Flexible, personality-driven prompt
         String systemPrompt = "You are " + agent.getName() + ", a " + profession + " villager in Minecraft. " +
@@ -159,7 +188,7 @@ public class TradeRequestPacket {
                 "- Rare items (diamonds, enchanted gear, netherite) are very precious.\n" +
                 "- Common blocks (dirt, cobblestone, grass, sand) have little value.\n" +
                 "- Food and tools have moderate value depending on quality.\n" +
-                "- You can only give away items you actually HAVE.\n\n" +
+                "- You can only give away items you actually HAVE (including equipped armor).\n\n" +
                 "Let your personality guide your decision. Think freely about:\n" +
                 "- Is this trade fair in terms of value?\n" +
                 "- Do you want or need what they're giving you?\n" +
@@ -185,7 +214,7 @@ public class TradeRequestPacket {
 
             // Execute trade if accepted, otherwise return items to player
             if (accepted) {
-                boolean success = executeTrade(player, agent, packet);
+                boolean success = executeTrade(player, agent, packet, villager);
                 if (!success) {
                     // Trade failed (items not available) - return items to player
                     reason = "Wait, I don't actually have those items. Sorry!";
@@ -222,27 +251,28 @@ public class TradeRequestPacket {
     }
 
     /**
-     * Execute the trade - transfer items between player and villager
+     * Execute the trade - transfer items between player and villager.
+     * Items can come from either the {@link com.github.AaronAA0721.villageragent.ai.AgentInventory}
+     * or the entity's equipment slots (equipped armor).
      * @return true if trade was successful, false if items weren't available
      */
-    private static boolean executeTrade(ServerPlayerEntity player, VillagerAgentData agent, TradeRequestPacket packet) {
-        // First verify villager has the requested items
+    private static boolean executeTrade(ServerPlayerEntity player, VillagerAgentData agent,
+                                         TradeRequestPacket packet, VillagerEntity villager) {
+        // Verify villager has requested items (check inventory + equipped armor)
         if (!packet.requestItem1.isEmpty()) {
-            if (!agent.getInventory().hasItem(packet.requestItem1, packet.requestItem1.getCount())) {
-                LOGGER.warn("Villager doesn't have enough of: " + packet.requestItem1);
+            if (!villagerHasItem(agent, villager, packet.requestItem1)) {
+                LOGGER.warn("Villager doesn't have: " + packet.requestItem1);
                 return false;
             }
         }
         if (!packet.requestItem2.isEmpty()) {
-            if (!agent.getInventory().hasItem(packet.requestItem2, packet.requestItem2.getCount())) {
-                LOGGER.warn("Villager doesn't have enough of: " + packet.requestItem2);
+            if (!villagerHasItem(agent, villager, packet.requestItem2)) {
+                LOGGER.warn("Villager doesn't have: " + packet.requestItem2);
                 return false;
             }
         }
 
-        // Player's offered items are already removed from their inventory on client side
-        // (they were placed in the sell slots which are separate from inventory)
-        // Add player's offer to villager inventory
+        // Add player's offered items to villager inventory
         if (!packet.offerItem1.isEmpty()) {
             agent.getInventory().addItem(packet.offerItem1.copy());
             LOGGER.info("Villager received: " + packet.offerItem1.getCount() + "x " + packet.offerItem1.getItem().getRegistryName());
@@ -252,20 +282,74 @@ public class TradeRequestPacket {
             LOGGER.info("Villager received: " + packet.offerItem2.getCount() + "x " + packet.offerItem2.getItem().getRegistryName());
         }
 
-        // Remove requested items from villager and give to player
+        // Remove requested items from villager (inventory first, then equipped armor) and give to player
         if (!packet.requestItem1.isEmpty()) {
-            agent.getInventory().removeItem(packet.requestItem1, packet.requestItem1.getCount());
+            removeFromVillager(agent, villager, packet.requestItem1);
             player.addItem(packet.requestItem1.copy());
             LOGGER.info("Player received: " + packet.requestItem1.getCount() + "x " + packet.requestItem1.getItem().getRegistryName());
         }
         if (!packet.requestItem2.isEmpty()) {
-            agent.getInventory().removeItem(packet.requestItem2, packet.requestItem2.getCount());
+            removeFromVillager(agent, villager, packet.requestItem2);
             player.addItem(packet.requestItem2.copy());
             LOGGER.info("Player received: " + packet.requestItem2.getCount() + "x " + packet.requestItem2.getItem().getRegistryName());
         }
 
+        // After trade, re-evaluate armor (received items may include armor to equip)
+        if (villager != null) {
+            VillagerEquipmentHelper.refreshEquipment(villager, agent);
+        }
+
         agent.addMemory("Traded with player " + player.getName().getString());
         return true;
+    }
+
+    /**
+     * Check whether the villager has the requested item — first in inventory, then in equipped armor slots.
+     */
+    private static boolean villagerHasItem(VillagerAgentData agent, VillagerEntity villager, ItemStack requested) {
+        // Check inventory
+        if (agent.getInventory().hasItem(requested, requested.getCount())) {
+            return true;
+        }
+        // Check equipped armor slots
+        if (villager != null) {
+            EquipmentSlotType[] armorSlots = {EquipmentSlotType.HEAD, EquipmentSlotType.CHEST,
+                    EquipmentSlotType.LEGS, EquipmentSlotType.FEET};
+            for (EquipmentSlotType slot : armorSlots) {
+                ItemStack equipped = villager.getItemBySlot(slot);
+                if (!equipped.isEmpty() && ItemStack.isSame(equipped, requested)
+                        && equipped.getCount() >= requested.getCount()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Remove the requested item from the villager. Tries inventory first, then equipped armor.
+     */
+    private static void removeFromVillager(VillagerAgentData agent, VillagerEntity villager, ItemStack requested) {
+        // Try inventory first
+        if (agent.getInventory().hasItem(requested, requested.getCount())) {
+            agent.getInventory().removeItem(requested, requested.getCount());
+            return;
+        }
+        // Try equipped armor slots
+        if (villager != null) {
+            EquipmentSlotType[] armorSlots = {EquipmentSlotType.HEAD, EquipmentSlotType.CHEST,
+                    EquipmentSlotType.LEGS, EquipmentSlotType.FEET};
+            for (EquipmentSlotType slot : armorSlots) {
+                ItemStack equipped = villager.getItemBySlot(slot);
+                if (!equipped.isEmpty() && ItemStack.isSame(equipped, requested)
+                        && equipped.getCount() >= requested.getCount()) {
+                    villager.setItemSlot(slot, ItemStack.EMPTY);
+                    LOGGER.info("Removed equipped armor from {}: {}", slot.getName(),
+                            requested.getItem().getRegistryName());
+                    return;
+                }
+            }
+        }
     }
 }
 

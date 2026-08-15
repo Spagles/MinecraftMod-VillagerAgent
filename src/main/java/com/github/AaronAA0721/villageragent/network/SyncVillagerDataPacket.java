@@ -19,13 +19,17 @@ public class SyncVillagerDataPacket {
     private final String profession;
     private final String personality;
     private final List<ItemStack> inventoryItems;
+    /** 4 armor pieces in order: HEAD, CHEST, LEGS, FEET */
+    private final List<ItemStack> armorItems;
 
-    public SyncVillagerDataPacket(UUID villagerId, String villagerName, String profession, String personality, List<ItemStack> items) {
+    public SyncVillagerDataPacket(UUID villagerId, String villagerName, String profession,
+                                   String personality, List<ItemStack> items, List<ItemStack> armorItems) {
         this.villagerId = villagerId;
         this.villagerName = villagerName;
         this.profession = profession;
         this.personality = personality;
         this.inventoryItems = items;
+        this.armorItems = armorItems;
     }
 
     public static void encode(SyncVillagerDataPacket packet, PacketBuffer buffer) {
@@ -36,6 +40,10 @@ public class SyncVillagerDataPacket {
         buffer.writeInt(packet.inventoryItems.size());
         for (ItemStack item : packet.inventoryItems) {
             buffer.writeItem(item);
+        }
+        // Armor: always 4 slots
+        for (int i = 0; i < 4; i++) {
+            buffer.writeItem(i < packet.armorItems.size() ? packet.armorItems.get(i) : ItemStack.EMPTY);
         }
     }
 
@@ -49,41 +57,32 @@ public class SyncVillagerDataPacket {
         for (int i = 0; i < itemCount; i++) {
             items.add(buffer.readItem());
         }
-        return new SyncVillagerDataPacket(id, name, profession, personality, items);
+        List<ItemStack> armor = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            armor.add(buffer.readItem());
+        }
+        return new SyncVillagerDataPacket(id, name, profession, personality, items, armor);
     }
 
     public static void handle(SyncVillagerDataPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
-            // Handle on client side - open the chat GUI
             VillagerChatHandler.openChatScreen(
                     packet.villagerId,
                     packet.villagerName,
                     packet.profession,
                     packet.personality,
-                    packet.inventoryItems
+                    packet.inventoryItems,
+                    packet.armorItems
             );
         });
         ctx.get().setPacketHandled(true);
     }
 
-    public UUID getVillagerId() {
-        return villagerId;
-    }
-
-    public String getVillagerName() {
-        return villagerName;
-    }
-
-    public String getProfession() {
-        return profession;
-    }
-
-    public String getPersonality() {
-        return personality;
-    }
-
-    public List<ItemStack> getInventoryItems() {
-        return inventoryItems;
-    }
+    public UUID getVillagerId() { return villagerId; }
+    public String getVillagerName() { return villagerName; }
+    public String getProfession() { return profession; }
+    public String getPersonality() { return personality; }
+    public List<ItemStack> getInventoryItems() { return inventoryItems; }
+    public List<ItemStack> getArmorItems() { return armorItems; }
 }
 

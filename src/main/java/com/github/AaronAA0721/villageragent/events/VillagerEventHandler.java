@@ -1,22 +1,30 @@
 package com.github.AaronAA0721.villageragent.events;
 
 import com.github.AaronAA0721.villageragent.ai.*;
+import com.github.AaronAA0721.villageragent.ai.world.WorldStructureIndex;
 import com.github.AaronAA0721.villageragent.config.ModConfig;
+import com.github.AaronAA0721.villageragent.debug.DebugSync;
 import com.github.AaronAA0721.villageragent.network.ModNetworking;
 import com.github.AaronAA0721.villageragent.network.SyncVillagerDataPacket;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.merchant.villager.VillagerEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.inventory.EquipmentSlotType;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.world.ChunkEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -50,6 +58,9 @@ public class VillagerEventHandler {
                 // Display the agent's name above the villager's head
                 villager.setCustomName(new StringTextComponent(agent.getName()));
                 villager.setCustomNameVisible(true);
+
+                // Mirror best armor from inventory → vanilla equipment slots (for rendering & damage reduction)
+                VillagerEquipmentHelper.refreshEquipment(villager, agent);
 
                 LOGGER.info("AI Agent created for villager: " + villager.getUUID()
                         + " (" + agent.getName() + ", " + agent.getProfession() + ")");
@@ -126,6 +137,24 @@ public class VillagerEventHandler {
             // Fast tick — farming state machine runs every tick for responsive walking/acting
             VillagerAgentManager.tickFarming(event.world);
 
+            // Fast tick — combat state machine: scan for threats, chase, attack
+            VillagerAgentManager.tickCombat(event.world);
+
+            // Fast tick — world building: place/break blocks, drive BuildJobs
+            VillagerAgentManager.tickBuilding(event.world);
+
+            // Social tick — villager-to-villager conversations (internally gated to ~10 s)
+            VillagerAgentManager.tickSocial(event.world);
+
+            // Thought bubbles — LLM inner thoughts broadcast near players (gated per villager)
+            VillagerAgentManager.tickThoughts(event.world);
+
+            // Player greetings — villager says hello when player walks within 8 blocks
+            VillagerAgentManager.tickGreeting(event.world);
+
+            // Debug overlay — stream perception/agent snapshots to clients (gated by config)
+            DebugSync.tick((ServerWorld) event.world);
+
             // Item attraction & pickup — runs every tick for smooth item magnetism
             handleVillagerItemPickup(event.world);
         }
@@ -193,6 +222,9 @@ public class VillagerEventHandler {
         // Update profession from the actual villager entity (in case it changed)
         updateVillagerProfession(villager, agent);
 
+        // Clear held item when talking — villager puts away tools/weapons
+        VillagerAgentManager.equipEmptyHand(villager);
+
         if (player instanceof ServerPlayerEntity) {
             ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
             String playerName = player.getName().getString();
@@ -205,13 +237,21 @@ public class VillagerEventHandler {
                 }
             }
 
-            // Send villager data to client to open chat GUI (now includes profession)
+            // Collect equipped armor (HEAD, CHEST, LEGS, FEET) from entity slots
+            List<ItemStack> armorItems = new ArrayList<>();
+            armorItems.add(villager.getItemBySlot(EquipmentSlotType.HEAD).copy());
+            armorItems.add(villager.getItemBySlot(EquipmentSlotType.CHEST).copy());
+            armorItems.add(villager.getItemBySlot(EquipmentSlotType.LEGS).copy());
+            armorItems.add(villager.getItemBySlot(EquipmentSlotType.FEET).copy());
+
+            // Send villager data to client to open chat GUI
             SyncVillagerDataPacket syncPacket = new SyncVillagerDataPacket(
                     villager.getUUID(),
                     agent.getName(),
                     agent.getProfession(),
                     agent.getPersonality(),
-                    inventoryItems
+                    inventoryItems,
+                    armorItems
             );
             ModNetworking.CHANNEL.send(PacketDistributor.PLAYER.with(() -> serverPlayer), syncPacket);
 
@@ -249,6 +289,58 @@ public class VillagerEventHandler {
         VillagerAgentSavedData savedData = VillagerAgentSavedData.get(serverWorld);
         savedData.setDirty(true);
         LOGGER.info("Saved villager agent data to world save");
+    }
+
+    /**
+     * A chunk just loaded: hand every not-yet-resolved bed in it to the shared
+     * {@link WorldStructureIndex}. The beds come straight from the chunk's
+     * block-entity table (free — no scan), and each one is flood-filled at most
+     * once by {@code WorldStructureIndex.processPending}. This is the primary,
+     * event-driven seeding of the building index (no periodic world sweep).
+     */
+    @SubscribeEvent
+    public void onChunkLoad(ChunkEvent.Load event) {
+        if (!ModConfig.ENABLE_AI_AGENTS.get()) return;
+        if (event.getWorld().isClientSide()) return;
+
+        WorldStructureIndex.instance((ServerWorld) event.getWorld()).indexChunk(event.getChunk());
+    }
+
+    /**
+     * A block was placed: if it is a bed, queue it for house detection; otherwise
+     * let the index react to the edit (a wall built around an open bed may now
+     * enclose it, or an edit may have broken a known building).
+     */
+    @SubscribeEvent
+    public void onBlockPlaced(BlockEvent.EntityPlaceEvent event) {
+        if (!ModConfig.ENABLE_AI_AGENTS.get()) return;
+        if (event.getWorld().isClientSide()) return;
+
+        BlockPos pos = event.getPos();
+        WorldStructureIndex index = WorldStructureIndex.instance((ServerWorld) event.getWorld());
+        if (event.getState().is(BlockTags.BEDS)) {
+            index.offerBed(pos);
+        } else {
+            index.onBlockChanged(pos);
+        }
+    }
+
+    /**
+     * A block was broken: if it was a bed, drop whatever it anchored and forget it;
+     * otherwise let the index react to the edit.
+     */
+    @SubscribeEvent
+    public void onBlockBroken(BlockEvent.BreakEvent event) {
+        if (!ModConfig.ENABLE_AI_AGENTS.get()) return;
+        if (event.getWorld().isClientSide()) return;
+
+        BlockPos pos = event.getPos();
+        WorldStructureIndex index = WorldStructureIndex.instance((ServerWorld) event.getWorld());
+        if (event.getState().is(BlockTags.BEDS)) {
+            index.onBedRemoved(pos);
+        } else {
+            index.onBlockChanged(pos);
+        }
     }
 }
 

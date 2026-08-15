@@ -78,9 +78,9 @@ public abstract class VillagerEntityMixin {
      *   <li>The agent has a current action (farming, crafting, walking to target, etc.)</li>
      *   <li>The agent is in farming state (scanning for crops, between individual harvests)</li>
      *   <li>The agent is on farming cooldown (brief rest between farming sessions)</li>
+     *   <li>The scheduled activity is "resting" — we park the villager at home ourselves,
+     *       so vanilla REST/IDLE paths must not override that.</li>
      * </ul>
-     *
-     * <p>As more systems are added (socializing, trading, sleeping), expand this method.
      */
     private static boolean isAgentActive(VillagerAgentData agent) {
         // Has an in-progress action (walking to crop, harvesting, planting, crafting, etc.)
@@ -95,6 +95,12 @@ public abstract class VillagerEntityMixin {
 
         // On farming cooldown — brief rest, don't let vanilla yank the villager away
         if (agent.isOnFarmingCooldown()) {
+            return true;
+        }
+
+        // Resting — VillagerActivitySystem has navigated the villager home and stopped navigation;
+        // suppress vanilla so it doesn't drag the villager back to its job site or bell.
+        if ("resting".equals(agent.getScheduledActivity())) {
             return true;
         }
 

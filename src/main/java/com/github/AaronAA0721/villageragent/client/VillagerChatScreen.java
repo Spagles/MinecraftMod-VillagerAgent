@@ -32,6 +32,7 @@ public class VillagerChatScreen extends Screen {
     private final String profession;
     private final String personality;
     private final List<ItemStack> villagerInventory;
+    private final List<ItemStack> villagerArmor;
 
     // Chat components
     private TextFieldWidget chatInput;
@@ -45,13 +46,15 @@ public class VillagerChatScreen extends Screen {
     private static final int DIALOG_BOX_MARGIN = 40;
     private static final int NAME_TAG_HEIGHT = 24;
 
-    public VillagerChatScreen(UUID villagerId, String villagerName, String profession, String personality, List<ItemStack> inventory) {
+    public VillagerChatScreen(UUID villagerId, String villagerName, String profession, String personality,
+                              List<ItemStack> inventory, List<ItemStack> armorItems) {
         super(new StringTextComponent("Chat with " + villagerName));
         this.villagerId = villagerId;
         this.villagerName = villagerName;
         this.profession = profession;
         this.personality = personality;
         this.villagerInventory = new ArrayList<>(inventory);
+        this.villagerArmor = new ArrayList<>(armorItems);
     }
 
     public String getProfession() {
@@ -86,9 +89,9 @@ public class VillagerChatScreen extends Screen {
     }
 
     private void openTradeScreen() {
-        // Open the trade screen, passing villager info
+        // Open the trade screen, passing villager info including armor
         Minecraft.getInstance().setScreen(new VillagerTradeScreen(
-            villagerId, villagerName, profession, personality, villagerInventory, this));
+            villagerId, villagerName, profession, personality, villagerInventory, villagerArmor, this));
     }
 
     private void sendMessage() {

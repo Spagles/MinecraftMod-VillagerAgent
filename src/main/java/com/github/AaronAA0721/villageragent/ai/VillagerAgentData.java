@@ -1,16 +1,25 @@
 package com.github.AaronAA0721.villageragent.ai;
 
+import com.github.AaronAA0721.villageragent.ai.memory.ChunkFeature;
+import com.github.AaronAA0721.villageragent.ai.memory.ChunkMemory;
+import com.github.AaronAA0721.villageragent.ai.memory.ChunkTag;
+import com.github.AaronAA0721.villageragent.ai.memory.EntityCategory;
+import com.github.AaronAA0721.villageragent.ai.vision.ChunkContentSampler;
+import com.github.AaronAA0721.villageragent.ai.world.BuildingRecord;
+import com.github.AaronAA0721.villageragent.ai.world.WorldStructureIndex;
 import com.github.AaronAA0721.villageragent.config.ModConfig;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.ListNBT;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Stores AI agent data for each villager including personality, memory, goals, and inventory
@@ -41,9 +50,9 @@ public class VillagerAgentData {
     }
 
     private UUID villagerId;
-    private String name;
+    private volatile String name;
     private String profession;  // The villager's actual Minecraft profession (Farmer, Librarian, etc.)
-    private String personality;
+    private volatile String personality;
     private List<TimestampedMessage> conversationHistory;
     private List<String> memories;
     private Map<String, Integer> relationships; // villager UUID -> relationship score
@@ -54,13 +63,96 @@ public class VillagerAgentData {
     private String currentActivity;
     private VillagerAction currentAction;  // Current action being executed
     private long actionStartTime;  // When the current action started
-    private boolean llmGenerationFailed = false;
-    private String llmErrorMessage = null;
+    private BuildJob currentBuildJob = null; // Active multi-block building task (null if none)
+    private volatile boolean llmGenerationFailed = false;
+    private volatile String llmErrorMessage = null;
     private long lastRestockTime = 0;  // Track when villager last restocked at job block
     private boolean inFarmingState = false;       // true while the villager is actively farming an area
     private int farmingCooldownTicks = 0;          // >0 means the villager is resting after a farming session
+    private int attackCooldownTicks = 0;           // >0 means the villager can't attack yet
+
+    /** Latest environment snapshot, built by VillagerVisionSystem before each chat response. */
+    private String lastEnvironmentSummary = null;
+
+    // ── Daily schedule / autonomous lifecycle ──
+    /** The villager's plan for today, generated once per dawn by VillagerSchedulePlanner. */
+    private DailySchedule dailySchedule = null;
+    /** The Minecraft day number (gameTime / 24000) when the plan was last generated. */
+    private long lastDayPlanned = -1L;
+    /** The Minecraft day number when an evening reflection was last generated. */
+    private long lastDayReflected = -1L;
+    /** True while this villager is mid-way through an LLM-generated social conversation. */
+    private volatile boolean socializing = false;
+    /** Game tick of the last social interaction (used for cooldown). */
+    private long lastSocialTick = -6001L;
+    /** The activity the daily schedule intends this villager to do right now. */
+    private String scheduledActivity = null;
+
+    // ── Needs system ──
+    /** Current hunger level (0 = starving, 100 = full). Starts full. */
+    private float hunger = 100f;
+    /** Current fatigue level (0 = rested, 100 = exhausted). Increases at night, resets at dawn. */
+    private float fatigue = 0f;
+    /** Game tick when the environment summary was last refreshed autonomously. */
+    private long lastEnvRefreshTick = -1L;
+
+    // ── Mood system ──
+    /**
+     * Five-tier mood derived by {@link VillagerNeedsSystem#deriveMood(VillagerAgentData)}.
+     * Re-computed every time needs are ticked. Injected into all LLM prompts.
+     */
+    public enum Mood { HAPPY, CONTENT, NEUTRAL, ANXIOUS, DISTRESSED }
+    private Mood mood = Mood.NEUTRAL;
+
+    public Mood getMood() { return mood; }
+    public void  setMood(Mood mood) { this.mood = mood; }
+
+    // ── Player greeting ──
+    /** Maps player UUID → last game tick this villager greeted that player. */
+    private final Map<UUID, Long> lastGreetedPlayer = new HashMap<>();
+
+    public Map<UUID, Long> getLastGreetedPlayer() { return lastGreetedPlayer; }
+
+    /** Maps player UUID → how many times this villager has greeted that player. */
+    private final Map<UUID, Integer> greetCount = new HashMap<>();
+
+    public Map<UUID, Integer> getGreetCount() { return greetCount; }
+
+    // ── Spatial memory ──
+    /**
+     * Per-chunk memory the villager has built up. Keyed by {@code ChunkPos.asLong}.
+     * When a new chunk is entered, that chunk is sampled (see {@link ChunkContentSampler})
+     * and the 8 surrounding chunks are marked "known" (lightweight, no sampling).
+     * Capped at MAX_KNOWN_CHUNKS entries; lowest-saliency entry is evicted first.
+     */
+    private final LinkedHashMap<Long, ChunkMemory> chunkMemories = new LinkedHashMap<>();
+    /** Maximum number of chunks to remember. */
+    private static final int MAX_KNOWN_CHUNKS = 512;
+    /** The chunk the villager was in last tick — used to detect chunk transitions. */
+    private long lastChunkKey = Long.MIN_VALUE;
+
+    // ── Memory summarization ──
+    /** True while an async LLM memory-compression call is in flight. */
+    private volatile boolean summarizingMemories = false;
+    /** Number of memories that triggers LLM compression. */
+    private static final int MEMORY_SUMMARIZE_THRESHOLD = 40;
+    /** Oldest memories consumed per summarization pass. */
+    private static final int MEMORY_SUMMARIZE_COUNT = 20;
+    /** Game tick of the last thought-bubble broadcast (for cooldown). */
+    private long lastThoughtTick = -7_200L;
 
     public VillagerAgentData(UUID villagerId) {
+        this(villagerId, true);
+    }
+
+    /**
+     * @param generateIdentity when true, generate a fresh identity for a NEW villager
+     *                         (async LLM, with an instant local fallback). When false,
+     *                         the identity is expected to be restored via
+     *                         {@link #deserializeNBT(CompoundNBT)} — used during world
+     *                         load so we never block the server thread on the network.
+     */
+    public VillagerAgentData(UUID villagerId, boolean generateIdentity) {
         this.villagerId = villagerId;
         this.profession = "Villager";  // Default, will be updated from actual villager
         this.conversationHistory = new ArrayList<>();
@@ -72,11 +164,12 @@ public class VillagerAgentData {
         this.lastThinkTime = 0;
         this.currentActivity = "idle";
 
-        // Try to generate name and personality using LLM
-        if (shouldUseLLM()) {
+        // Brand-new villager: kick off async identity generation (never blocks).
+        // Loading from saved data: skip — deserializeNBT restores the real identity.
+        if (generateIdentity && shouldUseLLM()) {
             generateWithLLM();
         } else {
-            // Fallback to random generation
+            // Local fallback so the villager always has a usable identity instantly.
             this.personality = generateRandomPersonality();
             this.name = generateRandomName();
         }
@@ -136,14 +229,21 @@ public class VillagerAgentData {
     }
 
     /**
-     * Generate name and personality using LLM
+     * Generate name and personality using LLM. Runs ASYNCHRONOUSLY — it never blocks
+     * the calling thread (the server thread), so world load and villager spawns stay
+     * responsive even when the LLM endpoint is slow or unreachable. A local fallback
+     * identity is applied immediately; the LLM result (if it ever arrives) replaces it.
      */
     private void generateWithLLM() {
-        String apiKey = ModConfig.LLM_API_KEY.get();
+        // Apply a local fallback right away so the villager is usable instantly and
+        // we never have a null/blank identity while the LLM call is in flight.
+        this.personality = generateRandomPersonality();
+        this.name = generateRandomName();
 
-        // Check if API key is configured
+        String apiKey = ModConfig.LLM_API_KEY.get();
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            useFallbackGeneration("API key not configured. Please set llmApiKey in config file.");
+            this.llmGenerationFailed = true;
+            this.llmErrorMessage = "API key not configured. Using local fallback names.";
             return;
         }
 
@@ -154,39 +254,44 @@ public class VillagerAgentData {
 
         String userPrompt = "Generate a unique villager character with a medieval name and interesting personality.";
 
+        // Fire-and-forget: the network call already runs on LLMService's own pool,
+        // so .thenAccept / .exceptionally execute off the server thread.
         try {
-            CompletableFuture<String> future = LLMService.queryLLM(systemPrompt, userPrompt);
-            String response = future.get(10, TimeUnit.SECONDS); // 10 second timeout
-
-            LOGGER.info("LLM Response received: " + response);
-
-            // Parse the JSON response
-            if (response.contains("{") && response.contains("}")) {
-                String json = response.substring(response.indexOf("{"), response.lastIndexOf("}") + 1);
-                LOGGER.info("Extracted JSON: " + json);
-
-                // Simple JSON parsing (avoiding external libraries)
-                String nameValue = extractJsonValue(json, "name");
-                String personalityValue = extractJsonValue(json, "personality");
-
-                LOGGER.info("Parsed name: " + nameValue + ", personality: " + personalityValue);
-
-                if (nameValue != null && personalityValue != null && !nameValue.isEmpty() && !personalityValue.isEmpty()) {
-                    this.name = nameValue;
-                    this.personality = personalityValue;
-                    LOGGER.info("Generated villager via LLM: " + name + " - " + personality);
-                    return;
-                }
-            }
-
-            // If parsing failed, use fallback
-            LOGGER.warn("Failed to parse LLM response: " + response);
-            useFallbackGeneration("Invalid response format from LLM. Response: " + response.substring(0, Math.min(100, response.length())));
-
+            LLMService.queryLLM(systemPrompt, userPrompt)
+                    .thenAccept(this::applyLLMResponse)
+                    .exceptionally(ex -> {
+                        LOGGER.error("Error generating villager with LLM: " + ex.getMessage());
+                        this.llmGenerationFailed = true;
+                        this.llmErrorMessage = "LLM request failed: " + ex.getMessage();
+                        return null;
+                    });
         } catch (Exception e) {
-            LOGGER.error("Error generating villager with LLM: " + e.getMessage(), e);
-            useFallbackGeneration("Failed to connect to LLM: " + e.getMessage());
+            LOGGER.error("Failed to start LLM request: " + e.getMessage());
+            this.llmGenerationFailed = true;
+            this.llmErrorMessage = "Failed to start LLM request: " + e.getMessage();
         }
+    }
+
+    /** Applies a completed LLM response (runs on the LLMService worker thread). */
+    private void applyLLMResponse(String response) {
+        if (response == null) {
+            this.llmGenerationFailed = true;
+            this.llmErrorMessage = "Empty LLM response; using local fallback.";
+            return;
+        }
+        if (response.contains("{") && response.contains("}")) {
+            String json = response.substring(response.indexOf("{"), response.lastIndexOf("}") + 1);
+            String nameValue = extractJsonValue(json, "name");
+            String personalityValue = extractJsonValue(json, "personality");
+            if (nameValue != null && personalityValue != null && !nameValue.isEmpty() && !personalityValue.isEmpty()) {
+                this.name = nameValue;
+                this.personality = personalityValue;
+                LOGGER.info("Generated villager via LLM: " + name + " - " + personality);
+                return;
+            }
+        }
+        this.llmGenerationFailed = true;
+        this.llmErrorMessage = "Invalid/unexpected LLM response; using local fallback.";
     }
 
     /**
@@ -211,16 +316,6 @@ public class VillagerAgentData {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    /**
-     * Use fallback random generation when LLM fails
-     */
-    private void useFallbackGeneration(String errorMessage) {
-        this.llmGenerationFailed = true;
-        this.llmErrorMessage = errorMessage;
-        this.personality = generateRandomPersonality();
-        this.name = generateRandomName();
     }
 
     private String generateRandomPersonality() {
@@ -268,6 +363,8 @@ public class VillagerAgentData {
         this.actionStartTime = System.currentTimeMillis();
     }
     public long getActionStartTime() { return actionStartTime; }
+    public BuildJob getBuildJob() { return currentBuildJob; }
+    public void setBuildJob(BuildJob job) { this.currentBuildJob = job; }
     public boolean hasLLMGenerationFailed() { return llmGenerationFailed; }
     public String getLLMErrorMessage() { return llmErrorMessage; }
     public long getLastRestockTime() { return lastRestockTime; }
@@ -279,13 +376,227 @@ public class VillagerAgentData {
     public boolean isOnFarmingCooldown() { return farmingCooldownTicks > 0; }
     public void tickFarmingCooldown() { if (farmingCooldownTicks > 0) farmingCooldownTicks--; }
     public void tickFarmingCooldown(int ticks) { farmingCooldownTicks = Math.max(0, farmingCooldownTicks - ticks); }
-    
-    public void addMemory(String memory) {
-        memories.add(memory);
-        if (memories.size() > 50) { // Keep only recent memories
-            memories.remove(0);
+
+    public int getAttackCooldownTicks() { return attackCooldownTicks; }
+    public void setAttackCooldownTicks(int ticks) { this.attackCooldownTicks = ticks; }
+    public boolean isOnAttackCooldown() { return attackCooldownTicks > 0; }
+    public void tickAttackCooldown() { if (attackCooldownTicks > 0) attackCooldownTicks--; }
+
+    /** Store the latest environment snapshot produced by {@link VillagerVisionSystem}. */
+    public void setEnvironmentSummary(String summary) { this.lastEnvironmentSummary = summary; }
+    public String getEnvironmentSummary() { return lastEnvironmentSummary; }
+
+    // ── Daily schedule accessors ──
+    public DailySchedule getDailySchedule() { return dailySchedule; }
+    public void setDailySchedule(DailySchedule schedule) { this.dailySchedule = schedule; }
+    public long getLastDayPlanned() { return lastDayPlanned; }
+    public void setLastDayPlanned(long day) { this.lastDayPlanned = day; }
+    public long getLastDayReflected() { return lastDayReflected; }
+    public void setLastDayReflected(long day) { this.lastDayReflected = day; }
+    public boolean isSocializing() { return socializing; }
+    public void setSocializing(boolean socializing) { this.socializing = socializing; }
+    public long getLastSocialTick() { return lastSocialTick; }
+    public void setLastSocialTick(long tick) { this.lastSocialTick = tick; }
+    public String getScheduledActivity() { return scheduledActivity; }
+    public void setScheduledActivity(String activity) { this.scheduledActivity = activity; }
+
+    // ── Needs system accessors ──
+    public float getHunger() { return hunger; }
+    public void setHunger(float hunger) { this.hunger = Math.max(0f, Math.min(100f, hunger)); }
+    public float getFatigue() { return fatigue; }
+    public void setFatigue(float fatigue) { this.fatigue = Math.max(0f, Math.min(100f, fatigue)); }
+    public long getLastEnvRefreshTick() { return lastEnvRefreshTick; }
+    public void setLastEnvRefreshTick(long tick) { this.lastEnvRefreshTick = tick; }
+
+    // ── Spatial memory accessors ──
+
+    /** Returns the packed chunk keys of all known (visited / nearby-seen) chunks. */
+    public Set<Long> getVisitedChunks() { return chunkMemories.keySet(); }
+
+    public ChunkMemory getChunkMemory(int cx, int cz) {
+        return chunkMemories.get(ChunkPos.asLong(cx, cz));
+    }
+
+    public java.util.Collection<ChunkMemory> getAllChunkMemories() { return chunkMemories.values(); }
+
+    /**
+     * Called when the villager enters a new chunk.
+     * Samples the entered chunk the first time it is seen (via {@link ChunkContentSampler}),
+     * and marks the 8 surrounding chunks as merely "known" (cheap placeholder, no sampling).
+     * Does nothing if the villager is still in the same chunk as the previous tick.
+     */
+    public void updateChunkMemory(LivingEntity villager, World world, int chunkX, int chunkZ) {
+        long key = ChunkPos.asLong(chunkX, chunkZ);
+        if (key == lastChunkKey) return; // same chunk as last tick — nothing to do
+        lastChunkKey = key;
+
+        // Sample the entered chunk the first time we encounter it
+        if (!chunkMemories.containsKey(key)) {
+            if (chunkMemories.size() >= MAX_KNOWN_CHUNKS) evictLowestSaliency();
+            chunkMemories.put(key, ChunkContentSampler.sample(villager, world, chunkX, chunkZ));
+        }
+
+        // Mark the 8 neighbours as known (no sampling — just remember we've seen them)
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                long nk = ChunkPos.asLong(chunkX + dx, chunkZ + dz);
+                if (!chunkMemories.containsKey(nk)) {
+                    if (chunkMemories.size() >= MAX_KNOWN_CHUNKS) evictLowestSaliency();
+                    ChunkMemory m = new ChunkMemory(nk);
+                    m.add(ChunkTag.KNOWN);
+                    chunkMemories.put(nk, m);
+                }
+            }
         }
     }
+
+    /** Evict the lowest-saliency chunk to make room (keeps important chunks longer). */
+    private void evictLowestSaliency() {
+        long worstKey = -1;
+        float worstSal = Float.MAX_VALUE;
+        for (java.util.Map.Entry<Long, ChunkMemory> e : chunkMemories.entrySet()) {
+            if (e.getValue().saliency < worstSal) {
+                worstSal = e.getValue().saliency;
+                worstKey = e.getKey();
+            }
+        }
+        if (worstKey != -1L) chunkMemories.remove(worstKey);
+    }
+
+    // ── Memory-query helpers ("recall without re-scanning the world") ──
+
+    /** Recall all memorised workbenches (crafting tables) as global BlockPos. */
+    public java.util.List<BlockPos> findWorkbenches() {
+        return findFeature(ChunkFeature.CRAFTING_TABLE);
+    }
+
+    /**
+     * Recall where a feature was seen — one representative position per chunk.
+     * Chunk memory intentionally keeps a single anchor per feature per chunk (see
+     * {@link ChunkMemory}); the exact layout is re-acquired on arrival by the frustum scan.
+     */
+    public java.util.List<BlockPos> findFeature(ChunkFeature feature) {
+        java.util.List<BlockPos> out = new java.util.ArrayList<>();
+        for (ChunkMemory cm : chunkMemories.values()) {
+            BlockPos p = cm.anchorOf(feature);
+            if (p != null) out.add(p);
+        }
+        return out;
+    }
+
+    public java.util.List<BlockPos> findOre(ChunkFeature ore) { return findFeature(ore); }
+
+    /** Any remembered ore of any kind, one position per chunk. */
+    public java.util.List<BlockPos> findAnyOre() {
+        java.util.List<BlockPos> out = new java.util.ArrayList<>();
+        for (ChunkMemory cm : chunkMemories.values()) {
+            for (ChunkFeature f : ChunkFeature.values()) {
+                if (!f.isOre()) continue;
+                BlockPos p = cm.anchorOf(f);
+                if (p != null) out.add(p);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Recall buildings near a position. Combines (1) personal chunk-memory "village" tags
+     * and (2) the shared WorldStructureIndex (which also covers player-built and cave houses).
+     */
+    public java.util.List<String> rememberNearbyHouses(World world, int radiusChunks, BlockPos here) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        int hx = here.getX() >> 4, hz = here.getZ() >> 4;
+        // 1) personal memory
+        for (ChunkMemory cm : chunkMemories.values()) {
+            if (!cm.has(ChunkTag.VILLAGE)) continue;
+            if (Math.abs(cm.getX() - hx) <= radiusChunks && Math.abs(cm.getZ() - hz) <= radiusChunks) {
+                out.add("a building cluster around chunk (" + cm.getX() + "," + cm.getZ() + ")");
+            }
+        }
+        // 2) shared index (includes cave houses)
+        if (world != null) {
+            for (BuildingRecord r : WorldStructureIndex.instance(world).queryNear(here, radiusChunks)) {
+                out.add("a " + r.coarseType + " near (" + r.boundsMin.getX() + "," + r.boundsMin.getZ()
+                        + "), with a bed at " + r.seedBed.getX() + "," + r.seedBed.getZ());
+            }
+        }
+        return out;
+    }
+
+    public boolean remembersWaterNearby() {
+        for (ChunkMemory cm : chunkMemories.values()) if (cm.has(ChunkTag.WATER)) return true;
+        return false;
+    }
+
+    public boolean remembersLavaDanger() {
+        for (ChunkMemory cm : chunkMemories.values()) if (cm.has(ChunkTag.DANGER_LAVA)) return true;
+        return false;
+    }
+
+    /**
+     * How many entities of a category were around the last time each remembered chunk was
+     * visited. Positions are deliberately not stored (they are stale within seconds) — use
+     * the live frustum scan when an actual position is needed.
+     */
+    public int countRememberedEntities(EntityCategory cat) {
+        int n = 0;
+        for (ChunkMemory cm : chunkMemories.values()) n += cm.entityCount(cat);
+        return n;
+    }
+
+    public void addMemory(String memory) {
+        memories.add(memory);
+        // Trigger LLM compression if we have too many memories and none is in flight
+        if (memories.size() >= MEMORY_SUMMARIZE_THRESHOLD && !summarizingMemories) {
+            summarizeOldMemories();
+        }
+    }
+
+    /**
+     * Asynchronously compress the oldest {@link #MEMORY_SUMMARIZE_COUNT} memories
+     * into 2-3 condensed sentences and replace them in-place.
+     * Guards against re-entry with {@link #summarizingMemories}.
+     */
+    private void summarizeOldMemories() {
+        summarizingMemories = true;
+
+        // Snapshot the oldest entries to summarize
+        int count = Math.min(MEMORY_SUMMARIZE_COUNT, memories.size());
+        List<String> toSummarize = new ArrayList<>(memories.subList(0, count));
+
+        StringBuilder memSb = new StringBuilder();
+        for (String m : toSummarize) memSb.append("- ").append(m).append("\n");
+
+        String sysPrompt = "Summarize the following Minecraft villager memories into 2-3 concise sentences "
+                + "written in first person. Preserve the most important facts. "
+                + "Output only the sentences — no labels or extra text.";
+        String userPrompt = "Villager: " + name + " (" + profession + ")\nMemories to summarize:\n" + memSb;
+
+        LLMService.queryLLM(sysPrompt, userPrompt).thenAccept(summary -> {
+            synchronized (memories) {
+                // Remove the entries we summarized (they may have shifted — remove up to count)
+                int removeCount = Math.min(count, memories.size());
+                memories.subList(0, removeCount).clear();
+                // Prepend the summary so it reads as "old context" at the front
+                if (summary != null && !summary.trim().isEmpty()) {
+                    memories.add(0, "[Summary of earlier memories] " + summary.trim());
+                }
+            }
+            summarizingMemories = false;
+            LOGGER.debug("{} memory compressed ({} → 1 summary)", name, count);
+        }).exceptionally(e -> {
+            // On failure just hard-cap — remove oldest to stay under threshold
+            synchronized (memories) {
+                int excess = memories.size() - MEMORY_SUMMARIZE_THRESHOLD + 5;
+                if (excess > 0) memories.subList(0, excess).clear();
+            }
+            summarizingMemories = false;
+            return null;
+        });
+    }
+
+    public long getLastThoughtTick() { return lastThoughtTick; }
+    public void setLastThoughtTick(long tick) { this.lastThoughtTick = tick; }
     
     /**
      * Record a conversation line with the current game tick.
@@ -361,9 +672,13 @@ public class VillagerAgentData {
         actions.add("CRAFT - Make an item at a workstation");
         actions.add("HARVEST - Gather crops or resources");
         actions.add("GROW - Plant seeds or grow crops");
+        actions.add("ATTACK - Attack a hostile entity");
         actions.add("IDLE - Rest for a while");
         actions.add("MOVE - Go to a location");
         actions.add("GATHER - Pick up items from ground");
+        actions.add("PLACE - Place a block within 1 block of you (the block must be in your inventory)");
+        actions.add("BREAK - Break a block within 1 block of you");
+        actions.add("BUILD - Design and build a structure (the LLM provides the layout)");
         request.setAvailableActions(actions);
 
         return request;
@@ -389,15 +704,30 @@ public class VillagerAgentData {
         pruneExpiredConversations(gameTick);
 
         // ── System prompt ──
-        String systemPrompt = "You are " + name + ", a " + profession + " in a medieval Minecraft village. " +
-                "Your job/profession is: " + profession + ". " +
-                "Your personality: " + personality + ". " +
-                "Respond in character as this villager. Keep responses short (1-2 sentences). " +
-                "Be friendly but stay in character. Don't break the fourth wall. " +
-                "Your responses should reflect your profession - for example, a Farmer talks about crops, " +
-                "a Librarian about books, a Blacksmith about tools and armor. " +
-                "You remember conversations from today. If the player refers to something said earlier, " +
-                "use the conversation history below to give a consistent, contextual reply.";
+        StringBuilder systemPromptBuilder = new StringBuilder();
+        systemPromptBuilder.append("You are ").append(name).append(", a ").append(profession)
+                .append(" in a medieval Minecraft village. ")
+                .append("Your job/profession is: ").append(profession).append(". ")
+                .append("Your personality: ").append(personality).append(". ")
+                .append("Respond in character as this villager. Keep responses short (1-2 sentences). ")
+                .append("Be friendly but stay in character. Don't break the fourth wall. ")
+                .append("Your responses should reflect your profession - for example, a Farmer talks about crops, ")
+                .append("a Librarian about books, a Blacksmith about tools and armor. ")
+                .append("You remember conversations from today. If the player refers to something said earlier, ")
+                .append("use the conversation history below to give a consistent, contextual reply.");
+
+        // Inject the latest environment snapshot so the LLM can reference surroundings naturally.
+        if (lastEnvironmentSummary != null && !lastEnvironmentSummary.isEmpty()) {
+            systemPromptBuilder.append(" Current environment around you: ").append(lastEnvironmentSummary);
+        }
+
+        // Inject current needs state (hunger/fatigue) so the LLM reflects physical condition.
+        String needsDesc = VillagerNeedsSystem.buildNeedsDescription(this);
+        if (!needsDesc.isEmpty()) {
+            systemPromptBuilder.append(" ").append(needsDesc);
+        }
+
+        String systemPrompt = systemPromptBuilder.toString();
 
         // ── Build user prompt with context ──
         StringBuilder context = new StringBuilder();
@@ -453,6 +783,17 @@ public class VillagerAgentData {
         nbt.putString("CurrentActivity", currentActivity);
         nbt.putLong("LastThinkTime", lastThinkTime);
         nbt.putLong("LastRestockTime", lastRestockTime);  // Save restock time
+        nbt.putLong("LastDayPlanned", lastDayPlanned);
+        nbt.putLong("LastDayReflected", lastDayReflected);
+        nbt.putFloat("Hunger", hunger);
+        nbt.putFloat("Fatigue", fatigue);
+
+        // Save chunk memories (each chunk's sampled content + entities)
+        if (!chunkMemories.isEmpty()) {
+            ListNBT memList = new ListNBT();
+            for (ChunkMemory cm : chunkMemories.values()) memList.add(cm.writeNBT());
+            nbt.put("ChunkMemories", memList);
+        }
 
         // Save memories
         ListNBT memoriesNBT = new ListNBT();
@@ -476,6 +817,11 @@ public class VillagerAgentData {
         // Save inventory
         nbt.put("Inventory", inventory.serializeNBT());
 
+        // Save active build job (if any)
+        if (currentBuildJob != null) {
+            nbt.put("BuildJob", currentBuildJob.writeNBT());
+        }
+
         return nbt;
     }
 
@@ -487,6 +833,22 @@ public class VillagerAgentData {
         this.currentActivity = nbt.getString("CurrentActivity");
         this.lastThinkTime = nbt.getLong("LastThinkTime");
         this.lastRestockTime = nbt.contains("LastRestockTime") ? nbt.getLong("LastRestockTime") : 0;  // Load restock time
+        this.lastDayPlanned = nbt.contains("LastDayPlanned") ? nbt.getLong("LastDayPlanned") : -1L;
+        this.lastDayReflected = nbt.contains("LastDayReflected") ? nbt.getLong("LastDayReflected") : -1L;
+        this.hunger  = nbt.contains("Hunger")  ? nbt.getFloat("Hunger")  : 100f;
+        this.fatigue = nbt.contains("Fatigue") ? nbt.getFloat("Fatigue") : 0f;
+
+        // Load chunk memories (old "VisitedChunks" long-array saves are ignored — no crash)
+        chunkMemories.clear();
+        if (nbt.contains("ChunkMemories")) {
+            ListNBT memList = nbt.getList("ChunkMemories", 10);
+            for (int i = 0; i < memList.size(); i++) {
+                ChunkMemory cm = ChunkMemory.readNBT(memList.getCompound(i));
+                chunkMemories.put(cm.chunkKey, cm);
+            }
+            // Reset lastChunkKey so the next chunk entry triggers a fresh update
+            lastChunkKey = Long.MIN_VALUE;
+        }
 
         // Load memories
         ListNBT memoriesNBT = nbt.getList("Memories", 10);
@@ -516,6 +878,16 @@ public class VillagerAgentData {
         // Load inventory
         if (nbt.contains("Inventory")) {
             inventory.deserializeNBT(nbt.getCompound("Inventory"));
+        }
+
+        // Load active build job (reconciled against the real world later, in tickBuilding)
+        if (nbt.contains("BuildJob")) {
+            try {
+                currentBuildJob = BuildJob.readNBT(nbt.getCompound("BuildJob"));
+            } catch (Exception e) {
+                LOGGER.warn("Failed to load BuildJob from NBT: " + e.getMessage());
+                currentBuildJob = null;
+            }
         }
     }
 }

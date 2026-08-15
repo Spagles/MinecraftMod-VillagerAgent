@@ -1,0 +1,255 @@
+
+=== A: enclosed house w/ door (control)  (strict=False) ===
+  detected AABB: min=(21, 10, 21) max=(24, 13, 29)  roomBlocks=63 maxRoomD=1.0
+    basin  0: size= 45784 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  1: size= 24704 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  2: size= 24704 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  3: size= 13224 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  4: size= 18746 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  5: size= 12626 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  6: size= 12626 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  7: size=  6866 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  8: size=   756 hasSky= True bigAirFrac=0.937 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  9: size=   450 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 10: size=   632 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 11: size=   198 hasSky=False bigAirFrac=0.879 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 12: size=   236 hasSky=False bigAirFrac=0.898 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 13: size=   234 hasSky=False bigAirFrac=0.846 touchBox=False -> room=True centroid=(12.9, 2.9, 16.0)
+    basin 14: size=   272 hasSky=False bigAirFrac=0.868 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 15: size=   270 hasSky=False bigAirFrac=0.822 touchBox=False -> room=True centroid=(12.8, 2.8, 16.0)
+  bed is in basin: 8
+  expected interior: min=(21, 10, 21) max=(29, 13, 29)
+  SPILL (extends beyond interior through hole): False
+
+=== B: hole (1x1) -> open exterior  (strict=False) ===
+  detected AABB: min=(21, 10, 21) max=(29, 13, 29)  roomBlocks=135 maxRoomD=1.0
+    basin  0: size= 45784 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  1: size= 24704 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  2: size= 24704 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  3: size= 13224 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  4: size= 18834 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  5: size= 12626 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  6: size= 12626 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  7: size=  6866 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  8: size=   356 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  9: size=   450 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 10: size=   632 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 11: size=   198 hasSky=False bigAirFrac=0.879 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 12: size=   506 hasSky=False bigAirFrac=0.881 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 13: size=   234 hasSky=False bigAirFrac=0.846 touchBox=False -> room=True centroid=(12.9, 2.9, 16.0)
+    basin 14: size=   576 hasSky=False bigAirFrac=0.833 touchBox=False -> room=True centroid=(16.0, 2.8, 16.0)
+  bed is in basin: 14
+  expected interior: min=(21, 10, 21) max=(29, 13, 29)
+  SPILL (extends beyond interior through hole): False
+
+=== C: hole (1x1) -> COVERED nook (suspected spill)  (strict=False) ===
+  detected AABB: min=(21, 10, 21) max=(29, 13, 29)  roomBlocks=135 maxRoomD=1.0
+    basin  0: size= 24704 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  1: size= 13224 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  2: size= 29092 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  3: size= 41252 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  4: size= 12626 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  5: size=  6866 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  6: size= 14782 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  7: size= 15094 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  8: size=   356 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  9: size=   450 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 10: size=   632 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 11: size=   198 hasSky=False bigAirFrac=0.879 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 12: size=   506 hasSky=False bigAirFrac=0.881 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 13: size=   234 hasSky=False bigAirFrac=0.846 touchBox=False -> room=True centroid=(12.9, 2.9, 16.0)
+    basin 14: size=   576 hasSky=False bigAirFrac=0.833 touchBox=False -> room=True centroid=(16.0, 2.8, 16.0)
+  bed is in basin: 14
+  expected interior: min=(21, 10, 21) max=(29, 13, 29)
+  SPILL (extends beyond interior through hole): False
+
+=== D: skylight (1x1 hole in roof)  (strict=False) ===
+  RESULT: NOT A HOUSE  (rejected: no overhead cover )
+
+=== C(strict): hole -> covered nook, with box-boundary fix  (strict=True) ===
+  detected AABB: min=(21, 10, 21) max=(29, 13, 29)  roomBlocks=135 maxRoomD=1.0
+    basin  0: size= 24704 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  1: size= 13224 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  2: size= 29092 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  3: size= 41252 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  4: size= 12626 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  5: size=  6866 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  6: size= 14782 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  7: size= 15094 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  8: size=   356 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  9: size=   450 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 10: size=   632 hasSky=False bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 11: size=   198 hasSky=False bigAirFrac=0.879 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 12: size=   506 hasSky=False bigAirFrac=0.881 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 13: size=   234 hasSky=False bigAirFrac=0.846 touchBox=False -> room=True centroid=(12.9, 2.9, 16.0)
+    basin 14: size=   576 hasSky=False bigAirFrac=0.833 touchBox=False -> room=True centroid=(16.0, 2.8, 16.0)
+  bed is in basin: 14
+  expected interior: min=(21, 10, 21) max=(29, 13, 29)
+  SPILL (extends beyond interior through hole): False
+
+=== E: SMALL house + hole -> COVERED nook (spill repro)  (strict=False) ===
+  detected AABB: min=(25, 10, 21) max=(27, 12, 27)  roomBlocks=46 maxRoomD=1.5
+    basin  0: size=    94 hasSky=False bigAirFrac=0.170 touchBox=False -> room=True centroid=(16.3, 3.2, 15.9)
+    basin  1: size=    30 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(15.0, 3.2, 16.0)
+    basin  2: size=    62 hasSky=False bigAirFrac=0.129 touchBox=False -> room=True centroid=(16.5, 3.2, 12.1)
+    basin  3: size=    96 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 2.8, 16.0)
+    basin  4: size=    86 hasSky=False bigAirFrac=0.093 touchBox=False -> room=True centroid=(16.5, 2.9, 12.0)
+  bed is in basin: 3
+  expected interior: min=(25, 10, 25) max=(27, 12, 27)
+  SPILL (extends beyond interior through hole): True
+
+######################################################################
+#  FIXED (Meyer watershed + sane AIR_RUN=12) -- same scenarios
+######################################################################
+
+=== A(fixed): enclosed house w/ door  (strict=False) ===
+  detected AABB: min=(21, 10, 20) max=(29, 13, 29)  roomBlocks=326 maxRoomD=2.0
+    basin  0: size= 11246 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  1: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  2: size=  8810 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  3: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  4: size=  1220 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  5: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  6: size= 36486 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  7: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  8: size= 20719 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  9: size=  1117 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 10: size=   896 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 11: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 12: size=  1040 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 13: size=  1220 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 14: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 15: size=  3442 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 16: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 17: size=  1066 hasSky=False bigAirFrac=0.028 touchBox=False -> room=True centroid=(16.0, 3.5, 15.9)
+    basin 18: size=   754 hasSky=False bigAirFrac=0.024 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 19: size=   498 hasSky=False bigAirFrac=0.028 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 20: size=   290 hasSky=False bigAirFrac=0.034 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 21: size=   723 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 22: size=  8819 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 23: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 24: size=  5950 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 25: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 26: size=  1220 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 27: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 28: size= 20719 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 29: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 30: size= 11669 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+  bed is in basin: 17
+  expected interior: min=(21, 10, 21) max=(29, 13, 29)
+  SPILL (extends beyond interior through hole): True
+
+=== B(fixed): hole -> open exterior  (strict=False) ===
+  detected AABB: min=(21, 10, 21) max=(29, 13, 29)  roomBlocks=324 maxRoomD=2.0
+    basin  0: size= 11382 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  1: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  2: size=  8810 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  3: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  4: size=  1220 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  5: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  6: size= 36494 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  7: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  8: size= 20719 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  9: size=  1294 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 10: size=   896 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 11: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 12: size=  1068 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 13: size=  1220 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 14: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 15: size=  3442 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 16: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 17: size=  1052 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 18: size=   748 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 19: size=   498 hasSky=False bigAirFrac=0.028 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 20: size=   290 hasSky=False bigAirFrac=0.034 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 21: size=   423 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 22: size=  8810 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 23: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 24: size=  5950 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 25: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 26: size=  1220 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 27: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 28: size= 20719 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 29: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 30: size= 11669 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+  bed is in basin: 17
+  expected interior: min=(21, 10, 21) max=(29, 13, 29)
+  SPILL (extends beyond interior through hole): False
+
+=== C(fixed): hole -> covered nook  (strict=False) ===
+  detected AABB: min=(21, 10, 21) max=(29, 13, 29)  roomBlocks=324 maxRoomD=2.0
+    basin  0: size=  6074 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  1: size=   237 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  2: size=  6215 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  3: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  4: size=   548 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  5: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  6: size= 26457 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  7: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  8: size= 20412 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin  9: size=  2013 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 10: size=  1200 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 11: size=  2576 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 12: size=   730 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 13: size=   465 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 14: size=  4333 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 15: size=  5395 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 16: size=  4069 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 17: size=     7 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 18: size=    84 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 19: size=     8 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 20: size=     9 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 21: size=   108 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 22: size=    23 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 23: size=    11 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 24: size=   132 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 25: size=    14 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 26: size=    13 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 27: size=   156 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 28: size=    23 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 29: size=    15 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 30: size=   180 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 31: size=    25 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 32: size=    17 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 33: size=   204 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 34: size=   146 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 35: size=    13 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 36: size=    19 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 37: size=   156 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 38: size=   228 hasSky= True bigAirFrac=1.000 touchBox=False -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 39: size=    14 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 40: size=    26 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 41: size=  1294 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 42: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 43: size=  1100 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 44: size=  1274 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 45: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 46: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 47: size=  1052 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 48: size=   748 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 49: size=   498 hasSky=False bigAirFrac=0.028 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 50: size=   290 hasSky=False bigAirFrac=0.034 touchBox=False -> room=True centroid=(16.0, 3.5, 16.0)
+    basin 51: size=   433 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 52: size=  8810 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 53: size=  1478 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 54: size=  5950 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 55: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 56: size=  1220 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 57: size=   287 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 58: size= 20741 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 59: size=  1772 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+    basin 60: size= 11681 hasSky= True bigAirFrac=1.000 touchBox=True -> room=False centroid=(0.0, 0.0, 0.0)
+  bed is in basin: 47
+  expected interior: min=(21, 10, 21) max=(29, 13, 29)
+  SPILL (extends beyond interior through hole): False
+
+=== E(fixed): small house + covered nook  (strict=False) ===
+  detected AABB: min=(25, 10, 21) max=(27, 12, 27)  roomBlocks=46 maxRoomD=1.5
+    basin  0: size=   148 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 3.0, 16.0)
+    basin  1: size=    52 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 3.0, 16.1)
+    basin  2: size=   118 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.5, 3.0, 12.1)
+    basin  3: size=    12 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.0, 3.0, 15.7)
+    basin  4: size=    34 hasSky=False bigAirFrac=0.000 touchBox=False -> room=True centroid=(16.5, 3.0, 12.1)
+  bed is in basin: 0
+  expected interior: min=(25, 10, 25) max=(27, 12, 27)
+  SPILL (extends beyond interior through hole): True
